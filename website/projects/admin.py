@@ -12,8 +12,8 @@ from courses.models import Semester
 
 from mailing_lists.models import MailingList
 
-from projects.forms import ProjectAdminForm, RepositoryInlineForm
 from projects.awssync import AWSSync
+from projects.forms import ProjectAdminForm, RepositoryInlineForm
 from projects.githubsync import GitHubSync
 from projects.models import Client, Project, Repository
 
