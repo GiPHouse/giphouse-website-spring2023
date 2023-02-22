@@ -16,3 +16,10 @@ class AWSSyncTest(TestCase):
         """Test button_pressed function."""
         return_value = self.sync.button_pressed()
         self.assertTrue(return_value)
+
+    def test_get_all_mailing_lists(self):
+        """Test get_all_mailing_lists function."""
+        mailing_lists = self.sync.get_all_mailing_lists()
+        self.assertIsInstance(mailing_lists, list)
+        
+
