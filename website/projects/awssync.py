@@ -1,6 +1,6 @@
 """Framework for synchronisation with Amazon Web Services (AWS)."""
 from mailing_lists.models import MailingList
-from django.db import models
+from registrations.models import Employee
 
 class AWSSync:
     """Synchronise with Amazon Web Services."""
@@ -25,12 +25,24 @@ class AWSSync:
     def get_all_mailing_lists(self):
         """
         Get all mailing lists from the database.
+
+        :return: List of mailing lists
         """
         mailing_lists = MailingList.objects.all()
         mailing_list_names = [mailing_list.email_address for mailing_list in mailing_lists]
         print(mailing_list_names)
         return mailing_list_names
 
+    def get_all_managers(self):
+        """
+        Get all managers from the database.
+
+        :return: List of managers
+        """
+        employees = Employee.objects.all()
+        for employee in employees:
+            print(employee)
+        return True
 
     
 
