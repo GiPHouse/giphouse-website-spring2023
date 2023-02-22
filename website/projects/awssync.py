@@ -17,8 +17,6 @@ class AWSSync:
         :return: True if function executes successfully
         """
         print("Pressed button")
-        print(self.get_all_mailing_lists())
-        print(self.get_all_managers())
 
         return True
 
@@ -30,7 +28,6 @@ class AWSSync:
         """
         mailing_lists = MailingList.objects.all()
         mailing_list_names = [mailing_list.email_address for mailing_list in mailing_lists]
-        print(mailing_list_names)
         return mailing_list_names
 
     def get_all_managers(self):
