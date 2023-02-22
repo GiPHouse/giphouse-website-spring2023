@@ -21,5 +21,3 @@ class AWSSyncTest(TestCase):
         """Test get_all_mailing_lists function."""
         mailing_lists = self.sync.get_all_mailing_lists()
         self.assertIsInstance(mailing_lists, list)
-        
-
