@@ -27,7 +27,7 @@ class AWSSync:
         :return: List of mailing lists
         """
         mailing_lists = MailingList.objects.all()
-        mailing_list_names = [mailing_list.email_address for mailing_list in mailing_lists]
+        mailing_list_names = [ml.email_address for ml in mailing_lists]
         return mailing_list_names
 
     def get_all_managers(self):
