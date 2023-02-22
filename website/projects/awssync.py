@@ -1,7 +1,8 @@
-"""Framework for synchronisation with Amazon Web Services (AWS)."""
 from mailing_lists.models import MailingList
+
 from registrations.models import Employee
 
+"""Framework for synchronisation with Amazon Web Services (AWS)."""
 
 class AWSSync:
     """Synchronise with Amazon Web Services."""
