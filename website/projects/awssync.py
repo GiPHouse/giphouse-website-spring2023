@@ -4,6 +4,7 @@ from registrations.models import Employee
 
 """Framework for synchronisation with Amazon Web Services (AWS)."""
 
+
 class AWSSync:
     """Synchronise with Amazon Web Services."""
 
@@ -31,13 +32,3 @@ class AWSSync:
         mailing_list_names = [ml.email_address for ml in mailing_lists]
         return mailing_list_names
 
-    def get_all_managers(self):
-        """
-        Get all managers from the database.
-
-        :return: List of managers
-        """
-        employees = Employee.objects.all()
-        for employee in employees:
-            print(employee)
-        return True
