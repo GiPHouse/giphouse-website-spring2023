@@ -31,4 +31,3 @@ class AWSSync:
         mailing_lists = MailingList.objects.all()
         mailing_list_names = [ml.email_address for ml in mailing_lists]
         return mailing_list_names
-
