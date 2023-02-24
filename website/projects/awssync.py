@@ -34,13 +34,14 @@ class AWSSync:
         mailing_list_names = [ml.email_address for ml in mailing_lists]
         return mailing_list_names
 
-    def get_teamid_from_email(self, email_address):
+    def get_email_with_teamid(self, email_address):
         """
-        Get the team ID from an email address.
+        Create a tuple with email and corresponding teamID
 
         :param email_address: Email address of the team
-        :return: Team ID
+        :return: (email, teamid)
         """
         project = Project.objects.get(email=email_address)
-        return project.github_team_id
+        return (email_address,project.github_team_id)
+
 
