@@ -19,9 +19,7 @@ class AWSSync:
         :return: True if function executes successfully
         """
         print("Pressed button")
-        temp_list = self.get_all_mailing_lists()
-        print(temp_list)
-        print(temp_list[0])
+        print(self.get_emails_with_teamids())
         return True
 
     def get_all_mailing_lists(self):
@@ -34,14 +32,20 @@ class AWSSync:
         mailing_list_names = [ml.email_address for ml in mailing_lists]
         return mailing_list_names
 
-    def get_email_with_teamid(self, email_address):
+    def get_emails_with_teamids(self):
         """
         Create a tuple with email and corresponding teamID
 
         :param email_address: Email address of the team
         :return: (email, teamid)
         """
-        project = Project.objects.get(email=email_address)
-        return (email_address,project.github_team_id)
+        mailing_lists = MailingList.objects.all()
+        email_id = []
+        for ml in mailing_lists:
+            project = ml.projects.all()
+            project_id = [(p.id,p.semester.id) for p in project]
+            project_id = int(str(project_id[0][0]) + str(project_id[0][1]))
+            email_id.append((ml.email_address, project_id))
+        return email_id
 
 
