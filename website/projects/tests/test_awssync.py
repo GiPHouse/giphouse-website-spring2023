@@ -2,10 +2,10 @@
 
 from django.test import TestCase
 
+from courses.models import Semester
+
 from projects import awssync
 from projects.models import Project
-
-from courses.models import Semester
 
 from mailing_lists.models import MailingList
 

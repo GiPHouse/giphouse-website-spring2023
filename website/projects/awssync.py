@@ -32,7 +32,7 @@ class AWSSync:
 
     def get_emails_with_teamids(self):
         """
-        Create a tuple with email and corresponding teamID, where teamID is a concatenation of projectID and semesterID.
+        Create a tuple with email and corresponding teamID, where teamID is a concatenation of ID and semesterID.
 
         :param email_address: Email address of the team
         :return: (email, teamid)
