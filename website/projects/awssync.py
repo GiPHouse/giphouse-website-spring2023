@@ -43,9 +43,7 @@ class AWSSync:
         email_id = []
         for ml in mailing_lists:
             project = ml.projects.all()
-            project_id = [(p.id,p.semester.id) for p in project]
+            project_id = [(p.id, p.semester.id) for p in project]
             project_id = int(str(project_id[0][0]) + str(project_id[0][1]))
             email_id.append((ml.email_address, project_id))
         return email_id
-
-
