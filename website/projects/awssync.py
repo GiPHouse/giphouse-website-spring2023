@@ -1,7 +1,5 @@
 from mailing_lists.models import MailingList
 
-from projects.models import Project
-
 """Framework for synchronisation with Amazon Web Services (AWS)."""
 
 
@@ -34,7 +32,7 @@ class AWSSync:
 
     def get_emails_with_teamids(self):
         """
-        Create a tuple with email and corresponding teamID
+        Create a tuple with email and corresponding teamID.
 
         :param email_address: Email address of the team
         :return: (email, teamid)
