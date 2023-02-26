@@ -33,6 +33,7 @@ class AWSSync:
     def get_emails_with_teamids(self):
         """
         Create a tuple with email and corresponding teamID.
+        The teamID is a combination of the projectID and the semesterID.
 
         :param email_address: Email address of the team
         :return: (email, teamid)
