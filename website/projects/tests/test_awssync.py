@@ -4,10 +4,10 @@ from django.test import TestCase
 
 from courses.models import Semester
 
+from mailing_lists.models import MailingList
+
 from projects import awssync
 from projects.models import Project
-
-from mailing_lists.models import MailingList
 
 
 class AWSSyncTest(TestCase):
