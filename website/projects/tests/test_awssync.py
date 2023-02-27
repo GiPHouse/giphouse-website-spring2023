@@ -10,9 +10,9 @@ from courses.models import Semester
 
 from django.test import TestCase
 
-from mailing_lists.models import MailingList
-
 from moto import mock_organizations
+
+from mailing_lists.models import MailingList
 
 from projects import awssync
 from projects.models import Project

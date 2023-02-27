@@ -1,11 +1,12 @@
 """Framework for synchronisation with Amazon Web Services (AWS)."""
-from mailing_lists.models import MailingList
 
 import logging
 
 import boto3
 
 from botocore.exceptions import ClientError
+
+from mailing_lists.models import MailingList
 
 
 class AWSSync:
