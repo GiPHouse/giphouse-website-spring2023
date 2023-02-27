@@ -4,8 +4,9 @@ from django.test import TestCase
 
 from courses.models import Semester
 
-from mailing_lists.models import MailingList
 from unittest.mock import patch
+
+from mailing_lists.models import MailingList
 
 import boto3
 
