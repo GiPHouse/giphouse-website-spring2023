@@ -45,20 +45,17 @@ class AWSSync:
 
         :return: list of (email, teamid)
         """
-        try:
-            mailing_lists = MailingList.objects.all()
-            email_id = []
-            for ml in mailing_lists:
-                project = ml.projects.all()
-                if len(project) != 0:
-                    project_id = [(p.id, p.semester.id) for p in project]
-                    project_id = int(str(project_id[0][0]) + str(project_id[0][1]))
-                    email_id.append((ml.email_address, project_id))
-                else:
-                    self.logger.info(f"Project for {ml.email_address} not found.")
-            return email_id
-        except Exception as error:
-            self.logger.error(f"Something went wrong getting the emails with teamIDs: {error}")
+        mailing_lists = MailingList.objects.all()
+        email_id = []
+        for ml in mailing_lists:
+            project = ml.projects.all()
+            if len(project) != 0:
+                project_id = [(p.id, p.semester.id) for p in project]
+                project_id = int(str(project_id[0][0]) + str(project_id[0][1]))
+                email_id.append((ml.email_address, project_id))
+            else:
+                self.logger.info(f"Project for {ml.email_address} not found.")
+        return email_id
 
     def create_aws_organization(self):
         """Create an AWS organization with the current user as the management account."""
