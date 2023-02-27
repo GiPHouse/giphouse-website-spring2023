@@ -39,13 +39,36 @@ class AWSSyncTest(TestCase):
         mailing_lists = self.sync.get_all_mailing_lists()
         self.assertIsInstance(mailing_lists, list)
 
-    def test_get_emails_with_teamids(self):
+    def test_get_emails_with_teamids_normal(self):
         """Test get_emails_with_teamids function."""
         email_id = self.sync.get_emails_with_teamids()
         self.assertIsInstance(email_id, list)
         self.assertIsInstance(email_id[0], tuple)
         expected_result = [("test1@giphouse.nl", 11)]
         self.assertEqual(email_id, expected_result)
+
+    def test_get_emails_with_teamids_no_project(self):
+        """Test get_emails_with_teamids function."""
+        MailingList.objects.all().delete()
+        self.mailing_list = MailingList.objects.create(address="test2")
+        email_id = self.sync.get_emails_with_teamids()
+        self.assertIsInstance(email_id, list)
+        self.assertEqual(email_id, [])
+
+    def test_get_emails_with_teamids_no_mailing_list(self):
+        """Test get_emails_with_teamids function."""
+        MailingList.objects.all().delete()
+        Project.objects.all().delete()
+        email_id = self.sync.get_emails_with_teamids()
+        self.assertIsInstance(email_id, list)
+        self.assertEqual(email_id, [])
+
+    def test_get_emails_with_exceptionerror(self):
+        """Test get_emails_with_teamids function."""
+        with patch.object(MailingList, "projects", side_effect=Exception):
+            email_id = self.sync.get_emails_with_teamids()
+            self.assertIsInstance(email_id, list)
+            self.assertEqual(email_id, [])
 
     def mock_api(self, operation_name, kwarg):
         if operation_name == "CreateOrganization":
