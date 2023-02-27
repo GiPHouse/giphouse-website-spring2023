@@ -6,11 +6,11 @@ import boto3
 
 from botocore.exceptions import ClientError
 
-from courses.models import Semester
-
 from django.test import TestCase
 
 from moto import mock_organizations
+
+from courses.models import Semester
 
 from mailing_lists.models import MailingList
 
