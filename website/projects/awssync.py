@@ -25,8 +25,8 @@ class AWSSync:
 
         :return: True if function executes successfully
         """
-        print("Pressed button")
-        print(self.get_emails_with_teamids())
+        self.logger.info("Pressed button")
+        self.logger.info(self.get_emails_with_teamids())
         return True
 
     def get_all_mailing_lists(self):
@@ -43,17 +43,22 @@ class AWSSync:
         """
         Create a tuple with email and corresponding teamID, where teamID is a concatenation of ID and semesterID.
 
-        :param email_address: Email address of the team
-        :return: (email, teamid)
+        :return: list of (email, teamid)
         """
-        mailing_lists = MailingList.objects.all()
-        email_id = []
-        for ml in mailing_lists:
-            project = ml.projects.all()
-            project_id = [(p.id, p.semester.id) for p in project]
-            project_id = int(str(project_id[0][0]) + str(project_id[0][1]))
-            email_id.append((ml.email_address, project_id))
-        return email_id
+        try:
+            mailing_lists = MailingList.objects.all()
+            email_id = []
+            for ml in mailing_lists:
+                project = ml.projects.all()
+                if len(project) != 0:
+                    project_id = [(p.id, p.semester.id) for p in project]
+                    project_id = int(str(project_id[0][0]) + str(project_id[0][1]))
+                    email_id.append((ml.email_address, project_id))
+                else:
+                    self.logger.info(f"Project for {ml.email_address} not found.")
+            return email_id
+        except Exception as error:
+            self.logger.error(f"Something went wrong getting the emails with teamIDs: {error}")
 
     def create_aws_organization(self):
         """Create an AWS organization with the current user as the management account."""
