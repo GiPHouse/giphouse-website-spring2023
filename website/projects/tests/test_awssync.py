@@ -63,7 +63,6 @@ class AWSSyncTest(TestCase):
         self.assertIsInstance(email_id, list)
         self.assertEqual(email_id, [])
 
-
     def mock_api(self, operation_name, kwarg):
         if operation_name == "CreateOrganization":
             raise ClientError(
