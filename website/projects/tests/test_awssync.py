@@ -1,16 +1,16 @@
 """Tests for awssync.py."""
 
-from django.test import TestCase
-
-from courses.models import Semester
-
 from unittest.mock import patch
-
-from mailing_lists.models import MailingList
 
 import boto3
 
 from botocore.exceptions import ClientError
+
+from courses.models import Semester
+
+from django.test import TestCase
+
+from mailing_lists.models import MailingList
 
 from moto import mock_organizations
 
