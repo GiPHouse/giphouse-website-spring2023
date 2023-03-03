@@ -14,6 +14,7 @@ class AWSSync:
         self.org_info = None
         self.fail = False
         self.logger.info("Created AWSSync instance.")
+        self.client = boto3.client("organizations")
 
     def button_pressed(self):
         """
@@ -26,9 +27,8 @@ class AWSSync:
 
     def create_aws_organization(self):
         """Create an AWS organization with the current user as the management account."""
-        client = boto3.client("organizations")
         try:
-            response = client.create_organization(FeatureSet="ALL")
+            response = self.client.create_organization(FeatureSet="ALL")
             self.org_info = response["Organization"]
             self.logger.info("Created an AWS organization and saved organization info.")
         except ClientError as error:
@@ -38,11 +38,16 @@ class AWSSync:
             self.logger.debug(f"{error.response}")
 
     def create_course_iteration_OU(self, iteration_id):
-        """Create an OU for the course iteration."""
-        client = boto3.client("organizations")
+        """
+        Create an OU for the course iteration.
+        
+        :param iteration_id: The ID of the course iteration
+
+        :return: The ID of the OU
+        """
         try:
-            response = client.create_organizational_unit(
-                ParentId=self.org_info["RootId"],
+            response = self.client.create_organizational_unit(
+                ParentId=f'r-{self.org_info["Id"]}',
                 Name=f"Course Iteration {iteration_id}",
             )
             self.logger.info(f"Created an OU for course iteration {iteration_id}.")
