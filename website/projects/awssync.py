@@ -36,3 +36,21 @@ class AWSSync:
             self.logger.error("Something went wrong creating an AWS organization.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
+
+    def create_course_iteration_OU(self, iteration_id):
+        """Create an OU for the course iteration."""
+        client = boto3.client("organizations")
+        try:
+            response = client.create_organizational_unit(
+                ParentId=self.org_info["RootId"],
+                Name=f"Course Iteration {iteration_id}",
+            )
+            self.logger.info(f"Created an OU for course iteration {iteration_id}.")
+            return response["OrganizationalUnit"]["Id"]
+        except ClientError as error:
+            self.fail = True
+            self.logger.error(
+                f"Something went wrong creating an OU for course iteration {iteration_id}."
+            )
+            self.logger.debug(f"{error}")
+            self.logger.debug(f"{error.response}")
