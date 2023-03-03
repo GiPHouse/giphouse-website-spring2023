@@ -40,7 +40,7 @@ class AWSSync:
     def create_course_iteration_OU(self, iteration_id):
         """
         Create an OU for the course iteration.
-        
+
         :param iteration_id: The ID of the course iteration
 
         :return: The ID of the OU
@@ -54,8 +54,6 @@ class AWSSync:
             return response["OrganizationalUnit"]["Id"]
         except ClientError as error:
             self.fail = True
-            self.logger.error(
-                f"Something went wrong creating an OU for course iteration {iteration_id}."
-            )
+            self.logger.error(f"Something went wrong creating an OU for course iteration {iteration_id}.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")

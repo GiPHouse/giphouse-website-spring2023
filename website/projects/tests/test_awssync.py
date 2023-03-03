@@ -47,7 +47,11 @@ class AWSSyncTest(TestCase):
 
     def mock_api(self, operation_name, kwarg):
         if operation_name == "CreateOrganization":
-            self.aws_client_error("create_organization", "The AWS account is already a member of an organization.", "AlreadyInOrganizationException")
+            self.aws_client_error(
+                "create_organization",
+                "The AWS account is already a member of an organization.",
+                "AlreadyInOrganizationException",
+            )
         if operation_name == "CreateOrganizationalUnit":
             self.aws_client_error("create_organizational_unit", "The OU already exists.", "ParentNotFoundException")
 
