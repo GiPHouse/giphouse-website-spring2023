@@ -70,7 +70,13 @@ class AWSSyncTest(TestCase):
     def test_create_course_iteration_OU(self):
         moto_client = self.client
         org = self.sync
-        org.create_aws_organization()
         org.create_course_iteration_OU(1)
-        describe_org = moto_client.describe_organization()["Organization"]
+        describe_org = moto_client.describe_organization()["Course Iteration 1 OU"]
         self.assertEqual(describe_org, org.org_info)
+
+    @patch("botocore.client.BaseClient._make_api_call", mock_api)
+    def test_create_course_iteration_OU__exception(self):
+        org = self.sync
+        org.create_course_iteration_OU(1)
+        self.assertTrue(org.fail)
+        self.assertIsNone(org.org_info)
