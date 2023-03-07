@@ -21,39 +21,56 @@ class AWSSyncTest(TestCase):
         return_value = self.sync.button_pressed()
         self.assertTrue(return_value)
 
-    def aws_client_error(self, boto3_operation_name, message, error_code):
-        raise ClientError(
-            {
-                "Error": {
-                    "Message": message,
-                    "Code": error_code,
-                },
-                "ResponseMetadata": {
-                    "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                    "HTTPStatusCode": 400,
-                    "HTTPHeaders": {
-                        "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                        "content-type": "application/x-amz-json-1.1",
-                        "content-length": "111",
-                        "date": "Sun, 01 Jan 2023 00:00:00 GMT",
-                        "connection": "close",
-                    },
-                    "RetryAttempts": 0,
-                },
-                "Message": message,
-            },
-            boto3_operation_name,
-        )
 
     def mock_api(self, operation_name, kwarg):
-        if operation_name == "CreateOrganization":
-            self.aws_client_error(
-                "create_organization",
-                "The AWS account is already a member of an organization.",
-                "AlreadyInOrganizationException",
+            if operation_name == "CreateOrganization":
+                raise ClientError(
+                    {
+                        "Error": {
+                            "Message": "The AWS account is already a member of an organization.",
+                            "Code": "AlreadyInOrganizationException",
+                        },
+                        "ResponseMetadata": {
+                            "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                            "HTTPStatusCode": 400,
+                            "HTTPHeaders": {
+                                "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                                "content-type": "application/x-amz-json-1.1",
+                                "content-length": "111",
+                                "date": "Sun, 01 Jan 2023 00:00:00 GMT",
+                                "connection": "close",
+                            },
+                            "RetryAttempts": 0,
+                        },
+                        "Message": "The AWS account is already a member of an organization.",
+                    },
+                    "create_organization",
             )
-        if operation_name == "CreateOrganizationalUnit":
-            self.aws_client_error("create_organizational_unit", "The OU already exists.", "ParentNotFoundException")
+            if operation_name == "CreateOrganizationalUnit":
+                raise ClientError(
+                    {
+                        "Error": {
+                            "Message": "The OU already exists.",
+                            "Code": "ParentNotFoundException",
+                        },
+                        "ResponseMetadata": {
+                            "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                            "HTTPStatusCode": 400,
+                            "HTTPHeaders": {
+                                "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                                "content-type": "application/x-amz-json-1.1",
+                                "content-length": "111",
+                                "date": "Sun, 01 Jan 2023 00:00:00 GMT",
+                                "connection": "close",
+                            },
+                            "RetryAttempts": 0,
+                        },
+                        "Message": "The OU already exists.",
+                    },
+                    "create_organizational_unit",
+            )
+
+
 
     @mock_organizations
     def test_create_aws_organization(self):
@@ -72,10 +89,10 @@ class AWSSyncTest(TestCase):
 
     @mock_organizations
     def test_create_course_iteration_OU(self):
-        moto_client = self.client
+        moto_client = self.client = boto3.client("organizations")
         org = self.sync
         org.create_course_iteration_OU(1)
-        describe_org = moto_client.describe_organization()["Course Iteration 1 OU"]
+        describe_org = moto_client.describe_organization()["Organization"]
         self.assertEqual(describe_org, org.org_info)
 
     @patch("botocore.client.BaseClient._make_api_call", mock_api)

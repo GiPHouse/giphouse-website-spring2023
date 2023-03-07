@@ -45,9 +45,11 @@ class AWSSync:
 
         :return: The ID of the OU
         """
+        if self.org_info is None:
+            self.create_aws_organization()
         try:
             response = self.client.create_organizational_unit(
-                ParentId=f'r-{self.org_info["Id"]}',
+                ParentId=self.org_info["Id"],
                 Name=f"Course Iteration {iteration_id}",
             )
             self.logger.info(f"Created an OU for course iteration {iteration_id}.")
