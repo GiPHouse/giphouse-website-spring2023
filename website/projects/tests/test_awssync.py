@@ -128,3 +128,34 @@ class AWSSyncTest(TestCase):
         org.create_aws_organization()
         self.assertTrue(org.fail)
         self.assertIsNone(org.org_info)
+
+class AWSSyncList(TestCase):
+    """Test AWSSyncList class."""
+
+    def setUp(self):
+        self.sync = awssync.AWSSync()
+
+    def test_AWS_sync_list_both_empty(self):
+        gip_list = []
+        aws_list = []
+        self.assertEquals(self.sync.generate_aws_sync_list(gip_list, aws_list), [])
+
+    def test_AWS_sync_list_empty_AWS(self):
+        gip_list = [("test1@test.test", 37), ("test2@test.test", 37), ("test3@test.test", 37)]
+        aws_list = []
+        self.assertEquals(self.sync.generate_aws_sync_list(gip_list, aws_list), gip_list)
+
+    def test_AWS_sync_list_empty_GiP(self):
+        gip_list = []
+        aws_list = [("test1@test.test", 37), ("test2@test.test", 37)]
+        self.assertEquals(self.sync.generate_aws_sync_list(gip_list, aws_list), [])
+
+    def test_AWS_sync_list_diff_email(self):
+        gip_list = [("test1@test.test", 37), ("test2@test.test", 37), ("test3@test.test", 37)]
+        aws_list = [("test1@test.test", 37), ("test2@test.test", 37)]
+        self.assertEquals(self.sync.generate_aws_sync_list(gip_list, aws_list), [("test3@test.test", 37)])
+
+    def test_AWS_sync_list_diff_id(self):
+        gip_list = [("test1@test.test", 37), ("test1@test.test", 38), ("test1@test.test", 39)]
+        aws_list = [("test1@test.test", 37), ("test1@test.test", 38)]
+        self.assertEquals(self.sync.generate_aws_sync_list(gip_list, aws_list), [("test1@test.test", 39)])
