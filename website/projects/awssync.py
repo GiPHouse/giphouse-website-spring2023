@@ -47,6 +47,7 @@ class AWSSync:
     def get_emails_with_teamids(self):
         """
         Create a list of dictionaries containing email, slug and semester.
+
         Slug and semester combined are together an uniqueness constraint.
 
         :return: list of (email, teamid)

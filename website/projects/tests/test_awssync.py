@@ -43,8 +43,10 @@ class AWSSyncTest(TestCase):
         """Test get_emails_with_teamids function."""
         email_id = self.sync.get_emails_with_teamids()
         self.assertIsInstance(email_id, list)
-        self.assertIsInstance(email_id[0], tuple)
-        expected_result = [("test1@giphouse.nl", "test11")]
+        self.assertIsInstance(email_id[0], dict)
+        expected_result = [
+            {"project_email": "test1@giphouse.nl", "project_slug": "test1", "project_semester": "Spring 2023"}
+        ]
         self.assertEqual(email_id, expected_result)
 
     def test_get_emails_with_teamids_no_project(self):
@@ -59,6 +61,17 @@ class AWSSyncTest(TestCase):
         """Test get_emails_with_teamids function."""
         MailingList.objects.all().delete()
         Project.objects.all().delete()
+        email_id = self.sync.get_emails_with_teamids()
+        self.assertIsInstance(email_id, list)
+        self.assertEqual(email_id, [])
+
+    def test_get_emails_with_teamids_different_semester(self):
+        """Test get_emails_with_teamids function."""
+        MailingList.objects.all().delete()
+        new_semester = Semester.objects.create(year=2022, season=Semester.FALL)
+        self.mailing_list = MailingList.objects.create(address="test2")
+        self.project = Project.objects.create(id=2, name="test2", semester=new_semester, slug="test2")
+        self.mailing_list.projects.add(self.project)
         email_id = self.sync.get_emails_with_teamids()
         self.assertIsInstance(email_id, list)
         self.assertEqual(email_id, [])
