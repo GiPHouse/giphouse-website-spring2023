@@ -16,14 +16,17 @@ class AWSSyncTest(TestCase):
     """Test AWSSync class."""
 
     def setUp(self):
+        self.mock_org = mock_organizations()
+        self.mock_org.start()
         self.sync = awssync.AWSSync()
-        self._service_model = botocore.client.BaseClient._service_model
+
+    def tearDown(self):
+        self.mock_org.stop()
 
     def test_button_pressed(self):
         return_value = self.sync.button_pressed()
         self.assertTrue(return_value)
     
-    @mock_organizations
     def test_create_aws_organization(self):
         moto_client = boto3.client("organizations")
         org = self.sync
@@ -38,7 +41,6 @@ class AWSSyncTest(TestCase):
         self.assertTrue(org.fail)
         self.assertIsNone(org.org_info)
 
-    @mock_organizations
     def test_create_course_iteration_OU(self):
         moto_client = boto3.client("organizations")
         org = self.sync
@@ -50,7 +52,6 @@ class AWSSyncTest(TestCase):
         self.assertEqual(describe_unit, org.iterationOU_info)
         
 
-    @mock_organizations
     def test_create_course_iteration_OU__exception(self):
         org = self.sync
         org.create_aws_organization()
@@ -58,17 +59,17 @@ class AWSSyncTest(TestCase):
             org.create_course_iteration_OU(1)
         self.assertTrue(org.fail)
 
-    @mock_organizations
     def test_create_team_OU(self):
         moto_client = boto3.client("organizations")
         org = self.sync
         org.create_aws_organization()
         org.create_course_iteration_OU(1)
         org.create_team_OU("team1")
-        describe_org = moto_client.describe_organization()["Organization"]
-        self.assertEqual(describe_org, org.org_info)
+        describe_unit = moto_client.describe_organizational_unit(
+            OrganizationalUnitId=org.iterationOU_info["Id"]
+        )["OrganizationalUnit"]
+        self.assertEqual(describe_unit, org.iterationOU_info)
 
-    @mock_organizations
     def test_create_team_OU__exception(self):
         org = self.sync
         org.create_aws_organization()
