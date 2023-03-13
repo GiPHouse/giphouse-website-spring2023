@@ -51,6 +51,11 @@ class AWSSyncTest(TestCase):
         ]
         self.assertEqual(describe_unit, org.iterationOU_info)
 
+    def test_create_iteration_OU_without_organization(self):
+        org = self.sync
+        org.create_course_iteration_OU(1)
+        self.assertTrue(org.fail)
+
     def test_create_course_iteration_OU__exception(self):
         org = self.sync
         org.create_aws_organization()
@@ -68,6 +73,12 @@ class AWSSyncTest(TestCase):
             "OrganizationalUnit"
         ]
         self.assertEqual(describe_unit, org.iterationOU_info)
+
+    def test_create_team_OU_without_iteration_OU(self):
+        org = self.sync
+        org.create_aws_organization()
+        org.create_team_OU("team1")
+        self.assertTrue(org.fail)
 
     def test_create_team_OU__exception(self):
         org = self.sync

@@ -49,6 +49,7 @@ class AWSSync:
         client = boto3.client("organizations")
         if self.org_info is None:
             self.logger.info("No organization info found. Creating an AWS organization.")
+            self.fail = True
         else:
             try:
                 response = client.create_organizational_unit(
@@ -75,6 +76,7 @@ class AWSSync:
         client = boto3.client("organizations")
         if self.iterationOU_info is None:
             self.logger.info("No iteration OU info found. Creating an OU for the course iteration.")
+            self.fail = True
         else:
             try:
                 response = client.create_organizational_unit(
