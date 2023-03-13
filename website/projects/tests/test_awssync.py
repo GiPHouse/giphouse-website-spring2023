@@ -26,7 +26,7 @@ class AWSSyncTest(TestCase):
     def test_button_pressed(self):
         return_value = self.sync.button_pressed()
         self.assertTrue(return_value)
-    
+
     def test_create_aws_organization(self):
         moto_client = boto3.client("organizations")
         org = self.sync
@@ -36,7 +36,7 @@ class AWSSyncTest(TestCase):
 
     def test_create_aws_organization__exception(self):
         org = self.sync
-        with patch ("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
+        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
             org.create_aws_organization()
         self.assertTrue(org.fail)
         self.assertIsNone(org.org_info)
@@ -46,11 +46,10 @@ class AWSSyncTest(TestCase):
         org = self.sync
         org.create_aws_organization()
         org.create_course_iteration_OU(1)
-        describe_unit = moto_client.describe_organizational_unit(
-            OrganizationalUnitId=org.iterationOU_info["Id"]
-        )["OrganizationalUnit"]
+        describe_unit = moto_client.describe_organizational_unit(OrganizationalUnitId=org.iterationOU_info["Id"])[
+            "OrganizationalUnit"
+        ]
         self.assertEqual(describe_unit, org.iterationOU_info)
-        
 
     def test_create_course_iteration_OU__exception(self):
         org = self.sync
@@ -65,19 +64,18 @@ class AWSSyncTest(TestCase):
         org.create_aws_organization()
         org.create_course_iteration_OU(1)
         org.create_team_OU("team1")
-        describe_unit = moto_client.describe_organizational_unit(
-            OrganizationalUnitId=org.iterationOU_info["Id"]
-        )["OrganizationalUnit"]
+        describe_unit = moto_client.describe_organizational_unit(OrganizationalUnitId=org.iterationOU_info["Id"])[
+            "OrganizationalUnit"
+        ]
         self.assertEqual(describe_unit, org.iterationOU_info)
 
     def test_create_team_OU__exception(self):
         org = self.sync
         org.create_aws_organization()
         org.create_course_iteration_OU(1)
-        with patch ("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
+        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
             org.create_team_OU("team1")
         self.assertTrue(org.fail)
-    
 
 
 class AWSAPITalkerTest(TestCase):
