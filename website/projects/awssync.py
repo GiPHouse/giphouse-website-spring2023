@@ -48,20 +48,21 @@ class AWSSync:
         """
         client = boto3.client("organizations")
         if self.org_info is None:
-            self.create_aws_organization()
-        try:
-            response = client.create_organizational_unit(
-                ParentId=self.org_info["Id"],
-                Name=f"Course Iteration {iteration_id}",
-            )
-            self.logger.info(f"Created an OU for course iteration {iteration_id}.")
-            self.iterationOU_info = response["OrganizationalUnit"]
-            return response["OrganizationalUnit"]["Id"]
-        except ClientError as error:
-            self.fail = True
-            self.logger.error(f"Something went wrong creating an OU for course iteration {iteration_id}.")
-            self.logger.debug(f"{error}")
-            self.logger.debug(f"{error.response}")
+            self.logger.info("No organization info found. Creating an AWS organization.")
+        else:
+            try:
+                response = client.create_organizational_unit(
+                    ParentId=self.org_info["Id"],
+                    Name=f"Course Iteration {iteration_id}",
+                )
+                self.logger.info(f"Created an OU for course iteration {iteration_id}.")
+                self.iterationOU_info = response["OrganizationalUnit"]
+                return response["OrganizationalUnit"]["Id"]
+            except ClientError as error:
+                self.fail = True
+                self.logger.error(f"Something went wrong creating an OU for course iteration {iteration_id}.")
+                self.logger.debug(f"{error}")
+                self.logger.debug(f"{error.response}")
 
     def create_team_OU(self, team_id):
         """
@@ -73,16 +74,17 @@ class AWSSync:
         """
         client = boto3.client("organizations")
         if self.iterationOU_info is None:
-            self.create_course_iteration_OU(1)  # Needs to be figured out
-        try:
-            response = client.create_organizational_unit(
-                ParentId=self.iterationOU_info["Id"],
-                Name=f"{team_id}",
-            )
-            self.logger.info(f"Created an OU for team {team_id}.")
-            return response["OrganizationalUnit"]["Id"]
-        except ClientError as error:
-            self.fail = True
-            self.logger.error(f"Something went wrong creating an OU for team {team_id}.")
-            self.logger.debug(f"{error}")
-            self.logger.debug(f"{error.response}")
+            self.logger.info("No iteration OU info found. Creating an OU for the course iteration.")
+        else:
+            try:
+                response = client.create_organizational_unit(
+                    ParentId=self.iterationOU_info["Id"],
+                    Name=f"{team_id}",
+                )
+                self.logger.info(f"Created an OU for team {team_id}.")
+                return response["OrganizationalUnit"]["Id"]
+            except ClientError as error:
+                self.fail = True
+                self.logger.error(f"Something went wrong creating an OU for team {team_id}.")
+                self.logger.debug(f"{error}")
+                self.logger.debug(f"{error.response}")
