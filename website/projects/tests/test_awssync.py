@@ -18,7 +18,7 @@ from projects import awssync
 from projects.models import Project
 
 
-class SyncData(TestCase):
+class SyncDataTest(TestCase):
     """Test SyncData class (struct)."""
 
     def setUp(self):
