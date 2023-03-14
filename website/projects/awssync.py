@@ -12,7 +12,6 @@ from mailing_lists.models import MailingList
 
 from projects.models import Project
 
-
 class SyncData:
     """Structure for AWS giphouse sync data."""
 
@@ -31,7 +30,6 @@ class SyncData:
             and self.project_slug == other.project_slug
             and self.project_semester == other.project_semester
         )
-
 
 class AWSSync:
     """Synchronise with Amazon Web Services."""

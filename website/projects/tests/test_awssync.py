@@ -17,7 +17,6 @@ from mailing_lists.models import MailingList
 from projects import awssync
 from projects.models import Project
 
-
 class SyncData(TestCase):
     """Test SyncData class (struct)."""
 
@@ -30,7 +29,7 @@ class SyncData(TestCase):
         with self.assertRaises(TypeError) as context:
             self.sync("", "", "") == []
         self.assertTrue("Must compare to object of type SyncData" in str(context.exception))
-
+        
 
 class AWSSyncTest(TestCase):
     """Test AWSSync class."""
