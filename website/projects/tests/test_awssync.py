@@ -18,6 +18,20 @@ from projects import awssync
 from projects.models import Project
 
 
+class SyncData(TestCase):
+    """Test SyncData class (struct)."""
+
+    def setUp(self):
+        """setup test environment."""
+        self.sync = awssync.SyncData
+
+    def test_throw_type_error_SyncData_class(self):
+        """Test Type Error when equals is called on wrong type."""
+        with self.assertRaises(TypeError) as context:
+            self.sync("", "", "") == []
+        self.assertTrue("Must compare to object of type SyncData" in str(context.exception))
+
+
 class AWSSyncTest(TestCase):
     """Test AWSSync class."""
 
