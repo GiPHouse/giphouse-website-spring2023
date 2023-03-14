@@ -42,11 +42,10 @@ class AWSSyncTest(TestCase):
     def test_get_emails_with_teamids_normal(self):
         """Test get_emails_with_teamids function."""
         email_id = self.sync.get_emails_with_teamids()
+
         self.assertIsInstance(email_id, list)
-        self.assertIsInstance(email_id[0], dict)
-        expected_result = [
-            {"project_email": "test1@giphouse.nl", "project_slug": "test1", "project_semester": "Spring 2023"}
-        ]
+        self.assertIsInstance(email_id[0], awssync.SyncData)
+        expected_result = [awssync.SyncData("test1@giphouse.nl", "test1", "Spring 2023")]
         self.assertEqual(email_id, expected_result)
 
     def test_get_emails_with_teamids_no_project(self):
