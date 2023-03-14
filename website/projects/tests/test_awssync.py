@@ -129,6 +129,7 @@ class AWSSyncTest(TestCase):
         self.assertTrue(org.fail)
         self.assertIsNone(org.org_info)
 
+
 class AWSSyncList(TestCase):
     """Test AWSSyncList class."""
 
