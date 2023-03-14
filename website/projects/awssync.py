@@ -50,7 +50,7 @@ class AWSSync:
 
         Slug and semester combined are together an uniqueness constraint.
 
-        :return: list of (email, teamid)
+        :return: list of dictionaries of email, slug and semester
         """
         email_ids = []
 
