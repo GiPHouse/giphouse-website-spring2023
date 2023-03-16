@@ -84,7 +84,7 @@ class AWSSync:
                     Name=f"{team_id}",
                 )
                 self.logger.info(f"Created an OU for team {team_id}.")
-                return response["OrganizationalUnit"]["Id"]
+                return response
             except ClientError as error:
                 self.fail = True
                 self.logger.error(f"Something went wrong creating an OU for team {team_id}.")
