@@ -69,10 +69,12 @@ class AWSSyncTest(TestCase):
         org.create_aws_organization()
         org.create_course_iteration_OU(1)
         org.create_team_OU("team1")
+        response = moto_client.list_organizational_units_for_parent(ParentId=org.iterationOU_info["Id"])
+        ou_names = [ou['Name'] for ou in response["OrganizationalUnits"]]
         describe_unit = moto_client.describe_organizational_unit(OrganizationalUnitId=org.iterationOU_info["Id"])[
             "OrganizationalUnit"
         ]
-        self.assertEqual(describe_unit, org.iterationOU_info)  # this does not check of team OU is created
+        self.assertEqual(ou_names[0], "team1")  # this does not check of team OU is created
 
     def test_create_team_OU_without_iteration_OU(self):
         org = self.sync
