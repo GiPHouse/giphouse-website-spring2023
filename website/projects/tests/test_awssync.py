@@ -72,7 +72,7 @@ class AWSSyncTest(TestCase):
         describe_unit = moto_client.describe_organizational_unit(OrganizationalUnitId=org.iterationOU_info["Id"])[
             "OrganizationalUnit"
         ]
-        self.assertEqual(describe_unit, org.iterationOU_info) #this does not check of team OU is created 
+        self.assertEqual(describe_unit, org.iterationOU_info)  # this does not check of team OU is created
 
     def test_create_team_OU_without_iteration_OU(self):
         org = self.sync
@@ -96,15 +96,11 @@ class AWSSyncTest(TestCase):
         org.create_team_OU("team1")
         org.create_team_OU("team2")
         org.create_team_OU("team3")
-        list_children = moto_client.list_children(
-            ParentId=org.iterationOU_info["Id"],
-            ChildType="ORGANIZATIONAL_UNIT"     
-            )
+        list_children = moto_client.list_children(ParentId=org.iterationOU_info["Id"], ChildType="ORGANIZATIONAL_UNIT")
         children = [child["Id"] for child in list_children["Children"]]
-        self.assertEqual(len(children),3)
+        self.assertEqual(len(children), 3)
 
 
-    
 class AWSAPITalkerTest(TestCase):
     def mock_api(self, operation_name, kwarg):
         if operation_name == "CreateOrganization":
