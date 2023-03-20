@@ -141,31 +141,6 @@ class AWSSyncTest(TestCase):
                 "create_policy",
             )
 
-        if operation_name == "AttachPolicy":
-            raise ClientError(
-                {
-                    "Error": {
-                        "Message": "You provided a value that does not match the required pattern.",
-                        "Code": "InvalidInputException",
-                    },
-                    "ResponseMetadata": {
-                        "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                        "HTTPStatusCode": 400,
-                        "HTTPHeaders": {
-                            "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                            "content-type": "application/x-amz-json-1.1",
-                            "content-length": "146",
-                            "date": "Sun, 01 Jan 2023 00:00:00 GMT",
-                            "connection": "close",
-                        },
-                        "RetryAttempts": 0,
-                    },
-                    "Message": "You provided a value that does not match the required pattern.",
-                    "Reason": "INVALID_PATTERN:POLICY_ID",
-                },
-                "attach_policy",
-            )
-
     @mock_organizations
     def test_create_aws_organization(self):
         moto_client = boto3.client("organizations")
@@ -225,6 +200,10 @@ class AWSSyncTest(TestCase):
         root_id = moto_client.list_roots()["Roots"][0]["Id"]
         self.sync.attach_scp_policy(policy_id, root_id)
 
+        current_scp_policies = moto_client.list_policies_for_target(TargetId=root_id, Filter="SERVICE_CONTROL_POLICY")
+        current_scp_policy_ids = [scp_policy["Id"] for scp_policy in current_scp_policies["Policies"]]
+
+        self.assertIn(policy_id, current_scp_policy_ids)
         self.assertFalse(self.sync.fail)
 
     @mock_organizations
@@ -237,10 +216,8 @@ class AWSSyncTest(TestCase):
         policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
 
         policy_id = policy["PolicySummary"]["Id"]
-        root_id = self.sync.org_info["Id"]
-
-        with patch("botocore.client.BaseClient._make_api_call", self.mock_api):
-            self.sync.attach_scp_policy(policy_id, root_id)
+        root_id = self.sync.org_info["Id"]  # Retrieves organization ID, not root ID, resulting in ClientError.
+        self.sync.attach_scp_policy(policy_id, root_id)
 
         self.assertTrue(self.sync.fail)
 
