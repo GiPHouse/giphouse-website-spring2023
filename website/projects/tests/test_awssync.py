@@ -10,6 +10,7 @@ from botocore.exceptions import ClientError
 from django.test import TestCase
 
 from moto import mock_organizations
+from moto import mock_sts
 
 from courses.models import Semester
 
@@ -220,6 +221,142 @@ class AWSSyncTest(TestCase):
         self.sync.attach_scp_policy(policy_id, root_id)
 
         self.assertTrue(self.sync.fail)
+
+    @mock_sts
+    def test_check_aws_api_connection(self):
+        success, caller_identity_info = self.sync.check_aws_api_connection()
+
+        self.assertTrue(success)
+        self.assertIsNotNone(caller_identity_info)
+
+    @mock_sts
+    def test_check_aws_api_connection__exception(self):
+        with patch("boto3.client") as mocker:
+            mocker.get_caller_identity.side_effect = ClientError({}, "get_caller_identity")
+            mocker.return_value = mocker
+            success, caller_identity_info = self.sync.check_aws_api_connection()
+
+        self.assertFalse(success)
+        self.assertIsNone(caller_identity_info)
+
+    @mock_organizations
+    def test_check_organization_existence(self):
+        moto_client = boto3.client("organizations")
+        organization_create_info = moto_client.create_organization(FeatureSet="ALL")["Organization"]
+        success, organization_describe_info = self.sync.check_organization_existence()
+
+        self.assertTrue(success)
+        self.assertEqual(organization_create_info, organization_describe_info)
+
+    @mock_organizations
+    def test_check_organization_existence__exception(self):
+        with patch("boto3.client") as mocker:
+            mocker.describe_organization.side_effect = ClientError({}, "describe_organization")
+            mocker.return_value = mocker
+            success, organization_info = self.sync.check_organization_existence()
+
+        self.assertFalse(success)
+        self.assertIsNone(organization_info)
+
+    @mock_sts
+    @mock_organizations
+    def test_check_is_management_account(self):
+        moto_client = boto3.client("organizations")
+
+        moto_client.create_organization(FeatureSet="ALL")["Organization"]
+        _, caller_identity_info = self.sync.check_aws_api_connection()
+        _, organization_info = self.sync.check_organization_existence()
+
+        # is_management_account == True
+        success_acc = self.sync.check_is_management_account(caller_identity_info, organization_info)
+        self.assertTrue(success_acc)
+
+        # is_management_account == False
+        caller_identity_info["Account"] = "daddy"
+        success_acc = self.sync.check_is_management_account(caller_identity_info, organization_info)
+        self.assertFalse(success_acc)
+
+    @mock_organizations
+    def test_check_scp_enabled(self):
+        moto_client = boto3.client("organizations")
+
+        # SCP enabled.
+        organization_info = moto_client.create_organization(FeatureSet="ALL")["Organization"]
+        scp_is_enabled = self.sync.check_scp_enabled(organization_info)
+        self.assertTrue(scp_is_enabled)
+
+        # SCP semi-disabled (pending).
+        organization_info["AvailablePolicyTypes"][0]["Status"] = "PENDING_DISABLE"
+        scp_is_enabled = self.sync.check_scp_enabled(organization_info)
+        self.assertFalse(scp_is_enabled)
+
+        # SCP disabled (empty list).
+        organization_info["AvailablePolicyTypes"] = []
+        scp_is_enabled = self.sync.check_scp_enabled(organization_info)
+        self.assertFalse(scp_is_enabled)
+
+    @mock_sts
+    @mock_organizations
+    def test_pipeline_preconditions__all_success(self):
+        moto_client = boto3.client("organizations")
+
+        moto_client.create_organization(FeatureSet="ALL")["Organization"]
+        success = self.sync.pipeline_preconditions()
+
+        self.assertTrue(success)
+
+    @mock_sts
+    def test_pipeline_preconditions__no_connection(self):
+        with patch("boto3.client") as mocker:
+            mocker.get_caller_identity.side_effect = ClientError({}, "get_caller_identity")
+            mocker.return_value = mocker
+            success = self.sync.pipeline_preconditions()
+        self.assertFalse(success)
+
+    @mock_sts
+    def test_pipeline_preconditions__no_organization(self):
+        success = self.sync.pipeline_preconditions()
+        self.assertFalse(success)
+
+    @mock_sts
+    @mock_organizations
+    def test_pipeline_preconditions__no_management(self):
+        moto_client = boto3.client("organizations")
+        moto_client.create_organization(FeatureSet="ALL")
+
+        with patch("projects.awssync.AWSSync.check_aws_api_connection") as mocker:
+            mocker.return_value = True, {"Account": "daddy"}
+            success = self.sync.pipeline_preconditions()
+
+        self.assertFalse(success)
+
+    @mock_sts
+    @mock_organizations
+    def test_pipeline_preconditions__no_scp(self):
+        moto_client = boto3.client("organizations")
+
+        organization_info = moto_client.create_organization(FeatureSet="ALL")["Organization"]
+        organization_info["AvailablePolicyTypes"] = []
+
+        with patch("projects.awssync.AWSSync.check_organization_existence") as mocker:
+            mocker.return_value = True, organization_info
+            success = self.sync.pipeline_preconditions()
+
+        self.assertFalse(success)
+
+    @mock_sts
+    @mock_organizations
+    def test_pipeline(self):
+        moto_client = boto3.client("organizations")
+
+        # pipeline_preconditions() == False
+        success = self.sync.pipeline()
+        self.assertFalse(success)
+
+        # pipeline_preconditions() == True
+        moto_client.create_organization(FeatureSet="ALL")["Organization"]
+        success = self.sync.pipeline()
+        self.assertTrue(success)
 
 
 class AWSSyncListTest(TestCase):
