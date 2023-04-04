@@ -150,3 +150,10 @@ class AWSSync:
             self.logger.error("Something went wrong attaching an SCP policy to a target.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
+
+    def pipeline(self):
+        """A single pipeline that integrates all buildings blocks for the AWS integration process."""
+        # 1058274
+        # hb140502
+        # Jer111
+        pass
