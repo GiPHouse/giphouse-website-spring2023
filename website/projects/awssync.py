@@ -112,7 +112,7 @@ class AWSSync:
 
     def create_scp_policy(self, policy_name, policy_description, policy_content):
         """
-        Create a SCP policy.
+        Create an SCP policy.
 
         :param policy_name: The policy name.
         :param policy_description: The policy description.
@@ -137,7 +137,7 @@ class AWSSync:
 
     def attach_scp_policy(self, policy_id, target_id):
         """
-        Attaches a SCP policy to a target (root, OU, or member account).
+        Attaches an SCP policy to a target (root, OU, or member account).
 
         :param policy_id: The ID of the policy to be attached.
         :param target_id: The ID of the target root, OU, or member account.
