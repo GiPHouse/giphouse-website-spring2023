@@ -6,6 +6,7 @@ import logging
 import boto3
 
 from botocore.exceptions import ClientError
+from botocore.exceptions import NoCredentialsError
 
 from courses.models import Semester
 
@@ -53,6 +54,8 @@ class AWSSync:
         """
         self.logger.info("Pressed button")
         self.logger.info(self.get_emails_with_teamids())
+        self.logger.debug(f"Pipeline check result: {self.pipeline_preconditions()}")
+
         return True
 
     def get_all_mailing_lists(self):
@@ -151,9 +154,127 @@ class AWSSync:
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
 
+    def check_aws_api_connection(self):
+        """
+        Check whether boto3 can connect to AWS API with current credentials.
+
+        :returns: First tuple element always exists and indicates success.
+                  Second tuple element is contains information about the entity
+                  who made the successful API call and None otherwise.
+        """
+        client_sts = boto3.client("sts")
+        try:
+            caller_identity_info = client_sts.get_caller_identity()
+        except (NoCredentialsError, ClientError) as error:
+            self.logger.info("Establishing AWS API connection failed.")
+            self.logger.debug(error)
+            return False, None
+        else:
+            self.logger.info("Establishing AWS API connection succeeded.")
+
+        return True, caller_identity_info
+
+    def check_organization_existence(self):
+        """
+        Check whether an AWS organization exists for the AWS API caller's account.
+
+        :returns: First tuple element always exists and indicates success.
+                  Second tuple element is describes properties of the organization and None otherwise.
+        """
+        client_organizations = boto3.client("organizations")
+
+        try:
+            response_org = client_organizations.describe_organization()
+        except ClientError as error:
+            self.logger.info("AWS organization existence check failed.")
+            self.logger.debug(error)
+            return False, None
+        else:
+            self.logger.info("AWS organization existence check succeeded.")
+
+        return True, response_org["Organization"]
+
+    def check_is_management_account(self, api_caller_info, organization_info):
+        """
+        Check whether caller of AWS API has organization's management account ID.
+
+        :returns: True iff the current organization's management account ID equals the AWS API caller's account ID.
+        """
+        management_account_id = organization_info["MasterAccountId"]
+        api_caller_account_id = api_caller_info["Account"]
+        is_management_account = management_account_id == api_caller_account_id
+
+        if is_management_account:
+            self.logger.info("Management account check succeeded.")
+        else:
+            self.logger.info("Management account check failed.")
+            self.logger.debug(f"The organization's management account ID is: '{management_account_id}'.")
+            self.logger.debug(f"The AWS API caller account ID is:            '{api_caller_account_id}'.")
+
+        return is_management_account
+
+    def check_scp_enabled(self, organization_info):
+        """
+        Check whether the SCP policy type is an enabled feature for the AWS organization.
+
+        :returns: True iff the SCP policy type feature is enabled for the organization.
+        """
+        scp_is_enabled = False
+        for policy in organization_info["AvailablePolicyTypes"]:
+            if policy["Type"] == "SERVICE_CONTROL_POLICY" and policy["Status"] == "ENABLED":
+                scp_is_enabled = True
+                break
+
+        if not scp_is_enabled:
+            self.logger.info("The SCP policy type is disabled for the organization.")
+            self.logger.debug(organization_info["AvailablePolicyTypes"])
+        else:
+            self.logger.info("Organization SCP policy status check succeeded.")
+
+        return scp_is_enabled
+
+    def pipeline_preconditions(self):
+        """
+        Check all crucial pipeline preconditions.
+
+        1. Locatable boto3 credentials and successful AWS API connection
+        2. Existing organization for AWS API caller
+        3. AWS API caller acts under same account ID as organization's management account ID
+        4. SCP policy type feature enabled for organization
+
+        :return: True iff all pipeline preconditions are met.
+        """
+        check_api_connection, api_caller_info = self.check_aws_api_connection()
+        if not check_api_connection:
+            return False
+
+        check_org_existence, organization_info = self.check_organization_existence()
+        if not check_org_existence:
+            return False
+
+        check_acc_management = self.check_is_management_account(api_caller_info, organization_info)
+        if not check_acc_management:
+            return False
+
+        check_scp_enabled = self.check_scp_enabled(organization_info)
+        if not check_scp_enabled:
+            return False
+
+        return True
+
     def pipeline(self):
-        """A single pipeline that integrates all buildings blocks for the AWS integration process."""
+        """
+        Single pipeline that integrates all buildings blocks for the AWS integration process.
+
+        :return: True iff all pipeline stages successfully executed.
+        """
         # 1058274
+        self.logger.info("Starting pipeline preconditions check.")
+        if not self.pipeline_preconditions():
+            self.logger.info("Failed pipeline preconditions check.")
+            return False
+        self.logger.info("All pipeline preconditions passed.")
+
         # hb140502
         # Jer111
-        pass
+        return True
