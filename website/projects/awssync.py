@@ -44,6 +44,66 @@ class AWSSync:
         self.logger.setLevel(logging.DEBUG)
         self.org_info = None
         self.fail = False
+        self.required_aws_actions = [
+            "organizations:CreateOrganizationalUnit",
+            "organizations:CreateAccount",
+            "organizations:MoveAccount"
+            # "organizations:AcceptHandshake",
+            "organizations:AttachPolicy",
+            # "organizations:CancelHandshake",
+            # "organizations:CloseAccount",
+            "organizations:CreateAccount",
+            # "organizations:CreateGovCloudAccount",
+            "organizations:CreateOrganization",
+            "organizations:CreateOrganizationalUnit",
+            "organizations:CreatePolicy",
+            # "organizations:DeclineHandshake",
+            # "organizations:DeleteOrganization",
+            "organizations:DeleteOrganizationalUnit",
+            "organizations:DeletePolicy",
+            "organizations:DeleteResourcePolicy",
+            # "organizations:DeregisterDelegatedAdministrator",
+            "organizations:DescribeAccount",
+            "organizations:DescribeCreateAccountStatus",
+            "organizations:DescribeEffectivePolicy",
+            # "organizations:DescribeHandshake",
+            "organizations:DescribeOrganization",
+            "organizations:DescribeOrganizationalUnit",
+            "organizations:DescribePolicy",
+            "organizations:DescribeResourcePolicy",
+            "organizations:DetachPolicy",
+            # "organizations:DisableAWSServiceAccess",
+            "organizations:DisablePolicyType",
+            # "organizations:EnableAWSServiceAccess",
+            # "organizations:EnableAllFeatures",
+            "organizations:EnablePolicyType",
+            # "organizations:InviteAccountToOrganization",
+            # "organizations:LeaveOrganization",
+            # "organizations:ListAWSServiceAccessForOrganization",
+            "organizations:ListAccounts",
+            "organizations:ListAccountsForParent",
+            "organizations:ListChildren",
+            "organizations:ListCreateAccountStatus",
+            # "organizations:ListDelegatedAdministrators",
+            # "organizations:ListDelegatedServicesForAccount",
+            # "organizations:ListHandshakesForAccount",
+            # "organizations:ListHandshakesForOrganization",
+            "organizations:ListOrganizationalUnitsForParent",
+            "organizations:ListParents",
+            "organizations:ListPolicies",
+            "organizations:ListPoliciesForTarget",
+            "organizations:ListRoots",
+            "organizations:ListTagsForResource",
+            "organizations:ListTargetsForPolicy",
+            "organizations:MoveAccount",
+            "organizations:PutResourcePolicy",
+            # "organizations:RegisterDelegatedAdministrator",
+            # "organizations:RemoveAccountFromOrganization",
+            "organizations:TagResource",
+            "organizations:UntagResource",
+            "organizations:UpdateOrganizationalUnit",
+            "organizations:UpdatePolicy",
+        ]
         self.logger.info("Created AWSSync instance.")
 
     def button_pressed(self):
@@ -174,6 +234,36 @@ class AWSSync:
 
         return True, caller_identity_info
 
+    def check_iam_policy(self, iam_user_arn, desired_actions):
+        """
+        Check for the specified IAM user ARN whether the actions in list \
+        desired_actions are allowed according to its IAM policy.
+
+        :param iam_user_arn: ARN of the IAM user being checked.
+        :param iam_actions: List of AWS API actions to check.
+        :returns: True iff all actions in desired_actions are allowed.
+        """
+        client_iam = boto3.client("iam")
+
+        try:
+            response = client_iam.simulate_principal_policy(PolicySourceArn=iam_user_arn, ActionNames=desired_actions)
+        except ClientError as error:
+            self.logger.info("AWS API actions check failed.")
+            self.logger.debug(error)
+            return False
+
+        success = True
+        for evaluation_result in response["EvaluationResults"]:
+            action_name = evaluation_result["EvalActionName"]
+            if evaluation_result["EvalDecision"] != "allowed":
+                self.logger.debug(f"The AWS API action {action_name} is denied for IAM user {iam_user_arn}.")
+                success = False
+
+        if success:
+            self.logger.info("AWS API actions check succeeded.")
+
+        return success
+
     def check_organization_existence(self):
         """
         Check whether an AWS organization exists for the AWS API caller's account.
@@ -238,14 +328,19 @@ class AWSSync:
         Check all crucial pipeline preconditions.
 
         1. Locatable boto3 credentials and successful AWS API connection
-        2. Existing organization for AWS API caller
-        3. AWS API caller acts under same account ID as organization's management account ID
-        4. SCP policy type feature enabled for organization
+        2. Check allowed AWS API actions based on IAM policy of caller
+        3. Existing organization for AWS API caller
+        4. AWS API caller acts under same account ID as organization's management account ID
+        5. SCP policy type feature enabled for organization
 
         :return: True iff all pipeline preconditions are met.
         """
         check_api_connection, api_caller_info = self.check_aws_api_connection()
         if not check_api_connection:
+            return False
+
+        check_api_actions = self.check_iam_policy(api_caller_info["Arn"], self.required_aws_actions)
+        if not check_api_actions:
             return False
 
         check_org_existence, organization_info = self.check_organization_existence()
