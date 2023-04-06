@@ -9,8 +9,7 @@ from botocore.exceptions import ClientError
 
 from django.test import TestCase
 
-from moto import mock_organizations
-from moto import mock_sts
+from moto import mock_organizations, mock_sts
 
 from courses.models import Semester
 
@@ -239,6 +238,44 @@ class AWSSyncTest(TestCase):
         self.assertFalse(success)
         self.assertIsNone(caller_identity_info)
 
+    # IAM simulate_principal_policy is not covered by moto.
+    def test_check_iam_policy(self):
+        iam_user_arn = "daddy"
+        desired_actions = []
+        mock_evaluation_results = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "organizations:CreateOrganizationalUnit",
+                    "EvalDecision": "allowed",
+                    "EvalResourceName": "*",
+                    "MissingContextValues": [],
+                }
+            ]
+        }
+
+        # success == True
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.return_value = mock_evaluation_results
+            success = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+        self.assertTrue(success)
+
+        # success == False
+        mock_evaluation_results["EvaluationResults"][0]["EvalDecision"] = "implicitDeny"
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.return_value = mock_evaluation_results
+            success = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+        self.assertFalse(success)
+
+    def test_check_iam_policy__exception(self):
+        iam_user_arn = "daddy"
+        desired_actions = []
+
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.side_effect = ClientError({}, "simulate_principal_policy")
+            success = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+
+        self.assertFalse(success)
+
     @mock_organizations
     def test_check_organization_existence(self):
         moto_client = boto3.client("organizations")
@@ -298,10 +335,32 @@ class AWSSyncTest(TestCase):
     @mock_sts
     @mock_organizations
     def test_pipeline_preconditions__all_success(self):
+        # Create organization.
         moto_client = boto3.client("organizations")
-
         moto_client.create_organization(FeatureSet="ALL")["Organization"]
-        success = self.sync.pipeline_preconditions()
+
+        # Mock return value of simulate_principal_policy.
+        iam_user_arn = "daddy"
+        desired_actions = []
+        mock_evaluation_results = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "organizations:CreateOrganizationalUnit",
+                    "EvalDecision": "allowed",
+                    "EvalResourceName": "*",
+                    "MissingContextValues": [],
+                }
+            ]
+        }
+
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.return_value = mock_evaluation_results
+            check_iam_policy = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+
+        # Mock return value of check_iam_policy.
+        with patch("projects.awssync.AWSSync.check_iam_policy") as mocker:
+            mocker.return_value = check_iam_policy
+            success = self.sync.pipeline_preconditions()
 
         self.assertTrue(success)
 
@@ -311,11 +370,60 @@ class AWSSyncTest(TestCase):
             mocker.get_caller_identity.side_effect = ClientError({}, "get_caller_identity")
             mocker.return_value = mocker
             success = self.sync.pipeline_preconditions()
+
+        self.assertFalse(success)
+
+    def test_pipeline_preconditions__no_iam(self):
+        # Mock return value of simulate_principal_policy.
+        iam_user_arn = "daddy"
+        desired_actions = []
+        mock_evaluation_results = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "organizations:CreateOrganizationalUnit",
+                    "EvalDecision": "implicitDeny",
+                    "EvalResourceName": "*",
+                    "MissingContextValues": [],
+                }
+            ]
+        }
+
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.return_value = mock_evaluation_results
+            check_api_actions = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+
+            # Mock return value of check_iam_policy.
+            with patch("projects.awssync.AWSSync.check_iam_policy") as mocker:
+                mocker.return_value = check_api_actions
+                success = self.sync.pipeline_preconditions()
+
         self.assertFalse(success)
 
     @mock_sts
     def test_pipeline_preconditions__no_organization(self):
-        success = self.sync.pipeline_preconditions()
+        # Mock return value of simulate_principal_policy.
+        iam_user_arn = "daddy"
+        desired_actions = []
+        mock_evaluation_results = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "organizations:CreateOrganizationalUnit",
+                    "EvalDecision": "allowed",
+                    "EvalResourceName": "*",
+                    "MissingContextValues": [],
+                }
+            ]
+        }
+
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.return_value = mock_evaluation_results
+            check_iam_policy = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+
+        # Mock return value of check_iam_policy.
+        with patch("projects.awssync.AWSSync.check_iam_policy") as mocker:
+            mocker.return_value = check_iam_policy
+            success = self.sync.pipeline_preconditions()
+
         self.assertFalse(success)
 
     @mock_sts
@@ -324,9 +432,30 @@ class AWSSyncTest(TestCase):
         moto_client = boto3.client("organizations")
         moto_client.create_organization(FeatureSet="ALL")
 
-        with patch("projects.awssync.AWSSync.check_aws_api_connection") as mocker:
-            mocker.return_value = True, {"Account": "daddy"}
-            success = self.sync.pipeline_preconditions()
+        # Mock return value of simulate_principal_policy.
+        iam_user_arn = "daddy"
+        desired_actions = []
+        mock_evaluation_results = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "organizations:CreateOrganizationalUnit",
+                    "EvalDecision": "allowed",
+                    "EvalResourceName": "*",
+                    "MissingContextValues": [],
+                }
+            ]
+        }
+
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.return_value = mock_evaluation_results
+            check_iam_policy = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+
+        # Mock return value of check_iam_policy.
+        with patch("projects.awssync.AWSSync.check_iam_policy") as mocker_iam:
+            mocker_iam.return_value = check_iam_policy
+            with patch("projects.awssync.AWSSync.check_aws_api_connection") as mocker_api:
+                mocker_api.return_value = True, {"Account": "daddy", "Arn": "01234567890123456789"}
+                success = self.sync.pipeline_preconditions()
 
         self.assertFalse(success)
 
@@ -336,11 +465,34 @@ class AWSSyncTest(TestCase):
         moto_client = boto3.client("organizations")
 
         organization_info = moto_client.create_organization(FeatureSet="ALL")["Organization"]
-        organization_info["AvailablePolicyTypes"] = []
 
-        with patch("projects.awssync.AWSSync.check_organization_existence") as mocker:
-            mocker.return_value = True, organization_info
-            success = self.sync.pipeline_preconditions()
+        # Mock return value of simulate_principal_policy.
+        iam_user_arn = "daddy"
+        desired_actions = []
+        mock_evaluation_results = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "organizations:CreateOrganizationalUnit",
+                    "EvalDecision": "allowed",
+                    "EvalResourceName": "*",
+                    "MissingContextValues": [],
+                }
+            ]
+        }
+
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.return_value = mock_evaluation_results
+            check_iam_policy = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+
+        # Mock return value of check_iam_policy.
+        with patch("projects.awssync.AWSSync.check_iam_policy") as mocker_iam:
+            mocker_iam.return_value = check_iam_policy
+
+            # Mock return value of check_organization_existence with no SCP policy enabled.
+            organization_info["AvailablePolicyTypes"] = []
+            with patch("projects.awssync.AWSSync.check_organization_existence") as mocker:
+                mocker.return_value = True, organization_info
+                success = self.sync.pipeline_preconditions()
 
         self.assertFalse(success)
 
@@ -355,7 +507,28 @@ class AWSSyncTest(TestCase):
 
         # pipeline_preconditions() == True
         moto_client.create_organization(FeatureSet="ALL")["Organization"]
-        success = self.sync.pipeline()
+
+        iam_user_arn = "daddy"
+        desired_actions = []
+        mock_evaluation_results = {
+            "EvaluationResults": [
+                {
+                    "EvalActionName": "organizations:CreateOrganizationalUnit",
+                    "EvalDecision": "allowed",
+                    "EvalResourceName": "*",
+                    "MissingContextValues": [],
+                }
+            ]
+        }
+
+        with patch("boto3.client") as mocker:
+            mocker().simulate_principal_policy.return_value = mock_evaluation_results
+            check_iam_policy = self.sync.check_iam_policy(iam_user_arn, desired_actions)
+
+        with patch("projects.awssync.AWSSync.check_iam_policy") as mocker:
+            mocker.return_value = check_iam_policy
+            success = self.sync.pipeline()
+
         self.assertTrue(success)
 
 
