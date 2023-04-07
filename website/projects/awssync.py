@@ -356,6 +356,40 @@ class AWSSync:
             return False
 
         return True
+    
+    def pipeline_create_scp_policy(self):
+        """
+        Creates an SCP policy to be attached to the organizational unit of the current semester.
+
+        :return: Details of newly created policy as a dict on success and NoneType object otherwise.
+        """
+        # attach dummy policy (deny all)
+        policy_name = "DenyAll"
+        policy_description = "Deny all access."
+        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
+        return self.create_scp_policy(policy_name, policy_description, policy_content)
+
+    def pipeline_policy(self, OU):
+        """
+        Creates an SCP policy and attaches it to the organizanal unit of the current semester.
+
+        :param OU: organizational unit of the current semester.
+        :return: True iff policy was successfully created and attached.
+        """
+        self.logger.info("Creating SCP policy to be attached to organizational unit for current semester.")
+        policy = self.pipeline_create_scp_policy()
+        if policy is None:
+            self.logger.info("Failed to create SCP policy.")
+            return False
+        self.logger.info("Successfully created SCP policy.")
+        
+        self.logger.info("Attaching SCP policy to organization unit for current semester.")
+        self.attach_scp_policy(policy["PolicySummary"]["Id"], OU["Id"])
+        if self.fail:
+            self.logger.info("Failed to attach SCP policy.")
+            return False
+        self.logger.info("Successfully attached SCP policy.")
+        return True
 
     def pipeline(self):
         """
@@ -371,5 +405,12 @@ class AWSSync:
         self.logger.info("All pipeline preconditions passed.")
 
         # hb140502
+        # should be created in Jermo's task
+        course_iteration_OU = None
+        # create and attach policy
+        if not self.pipeline_policy(course_iteration_OU):
+            return False
+
+        # create and move member accounts
         # Jer111
         return True
