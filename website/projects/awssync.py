@@ -178,3 +178,23 @@ class AWSSync:
             self.logger.error("Something went wrong attaching an SCP policy to a target.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
+    
+    def check_for_double_users(self, aws_list: list[SyncData], sync_list: list[SyncData]):
+        """
+        Check if no users are assigned to multiple projects.
+
+        Input will be a list of SyncData objects.
+        """
+        sync_emails = [x.project_email for x in sync_list]
+        aws_emails = [x.project_email for x in aws_list]
+        duplicate = ""
+
+        for x in sync_emails:
+            if x in aws_emails: 
+                duplicate = x
+                break
+        
+        
+        long_description = "Email address \"" + duplicate + "\" is already in the list of members in AWS"
+        #log somthing
+
