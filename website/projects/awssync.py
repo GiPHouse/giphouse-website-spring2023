@@ -2,6 +2,7 @@
 
 import json
 import logging
+import time
 
 import boto3
 
@@ -394,6 +395,7 @@ class AWSSync:
 
         :return: True iff all pipeline stages successfully executed.
         """
+        success = True
         # 1058274
         self.logger.info("Starting pipeline preconditions check.")
         if not self.pipeline_preconditions():
@@ -409,5 +411,37 @@ class AWSSync:
             return False
 
         # create and move member accounts
+        REQUEST_INTERVAL = 5
+        MAX_REQUESTS_RETRIES = 3
+        member_accounts = [("a@p.c", "a"), ("b@g.c", "b")]
+        client = boto3.client("organizations")
+        for email, name in member_accounts:
+            response_create = client.create_account(Email=email, AccountName=name, IamUserAccessToBilling="DENY")
+            request_id = response_create["CreateAccountStatus"]["Id"]
+            # wait for request to be processed by AWS
+            time.sleep(REQUEST_INTERVAL)
+            response_status = client.describe_create_account_status(CreateAccountRequestId=request_id)
+            if response_status["CreateAccountStatus"]["State"] == "IN_PROGRESS": 
+                nr_request_retries = 0
+                while nr_request_retries < MAX_REQUESTS_RETRIES:
+                    response_status = client.describe_create_account_status(CreateAccountRequestId=request_id)
+                    if response_status["CreateAccountStatus"]["State"] == "SUCCEEDED":
+                        break
+                    nr_request_retries += 1
+                if nr_request_retries == MAX_REQUESTS_RETRIES:
+                    self.logger.info(f"Account creation was not successful after {MAX_REQUESTS_RETRIES} attempts.")
+            elif response_status["CreateAccountStatus"]["State"] == "FAILED":
+                failure_reason = response_status["CreateAccountStatus"]["FailureReason"]
+                self.logger.info(f"Account creation of {name} ({email}) failed due to reason: {failure_reason}.")
+                success = False
+            else:
+                self.logger.info(f"Created account with email {email} and name {name}")
+                root_id = client.list_roots()["Roots"][0]["Id"]
+                # TODO check for consitency with Jermo's task for the course iteration OU
+                client.move_account(
+                    AccountId=response_status["CreateAccountStatus"]["AccountId"], 
+                    SourceParentId=root_id, 
+                    DestinationParentId=course_iteration_OU["Id"]
+                ) 
         # Jer111
-        return True
+        return success
