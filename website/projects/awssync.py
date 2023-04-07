@@ -430,6 +430,7 @@ class AWSSync:
                     failure_reason = response_status["CreateAccountStatus"]["FailureReason"]
                     self.logger.info(f"Account creation of {name} ({email}) failed due to reason: {failure_reason}.")
                     success = False
+                    break
                 elif request_state == "SUCCEEDED":
                     self.logger.info(f"Created account with email {email} and name {name}")
                     root_id = client.list_roots()["Roots"][0]["Id"]
