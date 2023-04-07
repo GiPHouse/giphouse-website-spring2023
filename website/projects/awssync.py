@@ -428,22 +428,22 @@ class AWSSync:
 
                 if request_state == "FAILED":
                     failure_reason = response_status["CreateAccountStatus"]["FailureReason"]
-                    self.logger.info(f"Account creation of {name} ({email}) failed due to reason: {failure_reason}.")
+                    self.logger.info(f"Account creation with email {email} and name {name} failed due to reason: {failure_reason}.")
                     success = False
                     break
                 elif request_state == "SUCCEEDED":
-                    self.logger.info(f"Created account with email {email} and name {name}")
+                    self.logger.info(f"Created account with email {email} and name {name}.")
                     root_id = client.list_roots()["Roots"][0]["Id"]
 
                     client.move_account(
                         AccountId=response_status["CreateAccountStatus"]["AccountId"],
                         SourceParentId=root_id,
-                        DestinationParentId=course_iteration_OU["Id"]  # TODO check for consitency with Jermo's task for the course iteration OU
+                        DestinationParentId=course_iteration_OU["Id"]  # TODO check for consistency with Jermo's task for the course iteration OU
                     )
                     break
 
                 if attempt == self.ACCOUNT_REQUEST_MAX_ATTEMPTS:
-                    self.logger.info(f"Account creation was not successful after {self.ACCOUNT_REQUEST_MAX_ATTEMPTS} attempts.")
+                    self.logger.info(f"Account creation with email {email} and name {name} was not successful after {self.ACCOUNT_REQUEST_MAX_ATTEMPTS} attempts.")
 
         # Jer111
         return success
