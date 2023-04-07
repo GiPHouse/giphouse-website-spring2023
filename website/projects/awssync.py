@@ -41,6 +41,9 @@ class AWSSync:
 
     def __init__(self):
         """Create an AWSSync instance."""
+        self.ACCOUNT_REQUEST_INTERVAL_SECONDS = 5
+        self.ACCOUNT_REQUEST_MAX_ATTEMPTS = 3
+
         self.logger = logging.getLogger("django.aws")
         self.logger.setLevel(logging.DEBUG)
         self.org_info = None
@@ -411,37 +414,35 @@ class AWSSync:
             return False
 
         # create and move member accounts
-        REQUEST_INTERVAL = 5
-        MAX_REQUESTS_RETRIES = 3
-        member_accounts = [("a@p.c", "a"), ("b@g.c", "b")]
+        member_accounts = [("alice@example.com", "alice"), ("bob@example.com", "bob")]  # Temporary dummy values.
         client = boto3.client("organizations")
+
         for email, name in member_accounts:
             response_create = client.create_account(Email=email, AccountName=name, IamUserAccessToBilling="DENY")
             request_id = response_create["CreateAccountStatus"]["Id"]
-            # wait for request to be processed by AWS
-            time.sleep(REQUEST_INTERVAL)
-            response_status = client.describe_create_account_status(CreateAccountRequestId=request_id)
-            if response_status["CreateAccountStatus"]["State"] == "IN_PROGRESS": 
-                nr_request_retries = 0
-                while nr_request_retries < MAX_REQUESTS_RETRIES:
-                    response_status = client.describe_create_account_status(CreateAccountRequestId=request_id)
-                    if response_status["CreateAccountStatus"]["State"] == "SUCCEEDED":
-                        break
-                    nr_request_retries += 1
-                if nr_request_retries == MAX_REQUESTS_RETRIES:
-                    self.logger.info(f"Account creation was not successful after {MAX_REQUESTS_RETRIES} attempts.")
-            elif response_status["CreateAccountStatus"]["State"] == "FAILED":
-                failure_reason = response_status["CreateAccountStatus"]["FailureReason"]
-                self.logger.info(f"Account creation of {name} ({email}) failed due to reason: {failure_reason}.")
-                success = False
-            else:
-                self.logger.info(f"Created account with email {email} and name {name}")
-                root_id = client.list_roots()["Roots"][0]["Id"]
-                # TODO check for consitency with Jermo's task for the course iteration OU
-                client.move_account(
-                    AccountId=response_status["CreateAccountStatus"]["AccountId"], 
-                    SourceParentId=root_id, 
-                    DestinationParentId=course_iteration_OU["Id"]
-                ) 
+
+            for attempt in range(1, self.ACCOUNT_REQUEST_MAX_ATTEMPTS + 1):
+                time.sleep(self.ACCOUNT_REQUEST_INTERVAL_SECONDS)
+                response_status = client.describe_create_account_status(CreateAccountRequestId=request_id)
+                request_state = response_status["CreateAccountStatus"]["State"]
+
+                if request_state == "FAILED":
+                    failure_reason = response_status["CreateAccountStatus"]["FailureReason"]
+                    self.logger.info(f"Account creation of {name} ({email}) failed due to reason: {failure_reason}.")
+                    success = False
+                elif request_state == "SUCCEEDED":
+                    self.logger.info(f"Created account with email {email} and name {name}")
+                    root_id = client.list_roots()["Roots"][0]["Id"]
+
+                    client.move_account(
+                        AccountId=response_status["CreateAccountStatus"]["AccountId"],
+                        SourceParentId=root_id,
+                        DestinationParentId=course_iteration_OU["Id"]  # TODO check for consitency with Jermo's task for the course iteration OU
+                    )
+                    break
+
+                if attempt == self.ACCOUNT_REQUEST_MAX_ATTEMPTS:
+                    self.logger.info(f"Account creation was not successful after {self.ACCOUNT_REQUEST_MAX_ATTEMPTS} attempts.")
+
         # Jer111
         return success
