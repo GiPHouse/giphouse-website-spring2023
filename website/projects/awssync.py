@@ -304,8 +304,14 @@ class AWSSync:
 
         try:
             response = client.list_organizational_units_for_parent(ParentId=parent_ou_id)
+            aws_tree = []
+            data = []
             years_OU = [(year['Id'], year['Name']) for year in response['OrganizationalUnits']]
-            
+            for year in years_OU:
+                response = client.list_accounts_for_parent(ParentId=year[0])
+                children = [(year['Id'], year['Name']) for year in response['Accounts']]
+                for child in children:
+
         except ClientError as error:
             self.fail = True
             self.logger.error("Something went wrong extracting the AWS setup.")
