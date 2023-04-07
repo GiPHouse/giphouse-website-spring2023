@@ -45,9 +45,6 @@ class AWSSync:
         self.org_info = None
         self.fail = False
         self.required_aws_actions = [
-            "organizations:CreateOrganizationalUnit",
-            "organizations:CreateAccount",
-            "organizations:MoveAccount"
             # "organizations:AcceptHandshake",
             "organizations:AttachPolicy",
             # "organizations:CancelHandshake",
