@@ -292,3 +292,24 @@ class AWSSync:
         if doubles != []:
             return (True, doubles)
         return (False, None)
+
+    def extract_aws_setup(self, parent_ou_id):
+        """
+        Gives a list of all the children of the parent OU.
+
+        :param parent_ou_id: The ID of the root ID.
+        """
+        
+        client = boto3.client("organizations")
+
+        try:
+            response = client.list_organizational_units_for_parent(ParentId=parent_ou_id)
+            years_OU = [(year['Id'], year['Name']) for year in response['OrganizationalUnits']]
+            
+        except ClientError as error:
+            self.fail = True
+            self.logger.error("Something went wrong extracting the AWS setup.")
+            self.logger.debug(f"{error}")
+            self.logger.debug(f"{error.response}")
+
+
