@@ -313,6 +313,7 @@ class AWSSync:
                 children = response["Accounts"]
                 data.append({"name": year[1], "id": year[0], "data": children})
             aws_tree.append(data)
+            return aws_tree
         except ClientError as error:
             self.fail = True
             self.logger.error("Something went wrong extracting the AWS setup.")
