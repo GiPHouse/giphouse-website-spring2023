@@ -392,58 +392,101 @@ class AWSSync:
         self.logger.info("Successfully attached SCP policy.")
         return True
 
+    def pipeline_create_account(self, email, username):
+        """
+        Create a single new AWS member account in the organization of the API caller.
+
+        The status of the member account request is repeatedly checked based on the class' attributes:
+            self.ACCOUNT_REQUEST_INTERVAL_SECONDS: thread sleeping time before each status check
+            self.ACCOUNT_REQUEST_MAX_ATTEMPTS:     maximum number of times to thread sleep and check
+
+        :param email:    The e-mail address of the new member account.
+        :param username: The username of the new member account.
+        :returns:        (True, account_id) on success and otherwise (False, failure_reason).
+        """
+        client = boto3.client("organizations")
+
+        # Request new member account.
+        try:
+            response_create = client.create_account(Email=email, AccountName=username, IamUserAccessToBilling="DENY")
+        except ClientError as error:
+            self.logger.debug(error)
+            return False, "CLIENTERROR_CREATE_ACCOUNT"
+
+        # Repeatedly check status of new member account request.
+        request_id = response_create["CreateAccountStatus"]["Id"]
+        for _ in range(1, self.ACCOUNT_REQUEST_MAX_ATTEMPTS + 1):
+            time.sleep(self.ACCOUNT_REQUEST_INTERVAL_SECONDS)
+
+            try:
+                response_status = client.describe_create_account_status(CreateAccountRequestId=request_id)
+            except ClientError as error:
+                self.logger.debug(error)
+                return False, "CLIENTERROR_DESCRIBE_CREATE_ACCOUNT_STATUS"
+
+            request_state = response_status["CreateAccountStatus"]["State"]
+            if request_state == "FAILED":
+                return False, response_status["CreateAccountStatus"]["FailureReason"]
+            elif request_state == "SUCCEEDED":
+                return True, response_status["CreateAccountStatus"]["AccountId"]
+
+        return False, "STILL_IN_PROGRESS"
+
+    def pipeline_create_and_move_accounts(self, new_member_accounts, root_id, destination_ou_id):
+        """
+        Create multiple accounts in the organization of the API caller and move them from the root to a destination OU.
+
+        :param new_member_accounts: List of 2-tuples with the e-mail address and username respectively, as strings.
+        :param root_id:             The organization's root ID.
+        :param destination_ou_id:   The organization's destination OU ID.
+        :returns:                   True iff **all** new member accounts were created and moved successfully.
+        """
+        client = boto3.client("organizations")
+        overall_success = True
+
+        for email, name in new_member_accounts:
+            success, response = self.pipeline_create_account(email, name)
+            if success:
+                account_id = response
+                try:
+                    client.move_account(
+                        AccountId=account_id, SourceParentId=root_id, DestinationParentId=destination_ou_id
+                    )
+                except ClientError as error:
+                    self.logger.debug(error)
+                    overall_success = False
+            else:
+                failure_reason = response
+                self.logger.debug(failure_reason)
+                overall_success = False
+
+        return overall_success
+
     def pipeline(self):
         """
         Single pipeline that integrates all buildings blocks for the AWS integration process.
 
         :return: True iff all pipeline stages successfully executed.
         """
-        success = True
-        # 1058274
-        self.logger.info("Starting pipeline preconditions check.")
+        # Check preconditions.
         if not self.pipeline_preconditions():
-            self.logger.info("Failed pipeline preconditions check.")
-            return False
-        self.logger.info("All pipeline preconditions passed.")
-
-        # hb140502
-        # should be created in Jermo's task
-        course_iteration_OU = None
-        # create and attach policy
-        if not self.pipeline_policy(course_iteration_OU):
             return False
 
-        # create and move member accounts
-        member_accounts = [("alice@example.com", "alice"), ("bob@example.com", "bob")]  # Temporary dummy values.
+        # TODO: Get synchronization data.
+        # TODO: Check/create course iteration OU.
+        course_iteration_ou_id = None
+
+        # Attach SCP policy to course iteration OU.
+        if not self.pipeline_policy(course_iteration_ou_id):
+            return False
+
+        # Create new member accounts and move to course iteration OU.
+        # Temporary dummy variables (dependent on other in-progress tasks).
+        member_accounts = [("alice@example.com", "alice"), ("bob@example.com", "bob")]
         client = boto3.client("organizations")
+        root_id = client.list_roots()["Roots"][0]["Id"]
 
-        for email, name in member_accounts:
-            response_create = client.create_account(Email=email, AccountName=name, IamUserAccessToBilling="DENY")
-            request_id = response_create["CreateAccountStatus"]["Id"]
+        if not self.pipeline_create_and_move_accounts(member_accounts, root_id, course_iteration_ou_id):
+            return False
 
-            for attempt in range(1, self.ACCOUNT_REQUEST_MAX_ATTEMPTS + 1):
-                time.sleep(self.ACCOUNT_REQUEST_INTERVAL_SECONDS)
-                response_status = client.describe_create_account_status(CreateAccountRequestId=request_id)
-                request_state = response_status["CreateAccountStatus"]["State"]
-
-                if request_state == "FAILED":
-                    failure_reason = response_status["CreateAccountStatus"]["FailureReason"]
-                    self.logger.info(f"Account creation with email {email} and name {name} failed due to reason: {failure_reason}.")
-                    success = False
-                    break
-                elif request_state == "SUCCEEDED":
-                    self.logger.info(f"Created account with email {email} and name {name}.")
-                    root_id = client.list_roots()["Roots"][0]["Id"]
-
-                    client.move_account(
-                        AccountId=response_status["CreateAccountStatus"]["AccountId"],
-                        SourceParentId=root_id,
-                        DestinationParentId=course_iteration_OU["Id"]  # TODO check for consistency with Jermo's task for the course iteration OU
-                    )
-                    break
-
-                if attempt == self.ACCOUNT_REQUEST_MAX_ATTEMPTS:
-                    self.logger.info(f"Account creation with email {email} and name {name} was not successful after {self.ACCOUNT_REQUEST_MAX_ATTEMPTS} attempts.")
-
-        # Jer111
-        return success
+        return True
