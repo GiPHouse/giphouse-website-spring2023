@@ -372,7 +372,7 @@ class AWSSync:
 
     def pipeline_policy(self, OU):
         """
-        Creates an SCP policy and attaches it to the organizanal unit of the current semester.
+        Creates an SCP policy and attaches it to the organizational unit of the current semester.
 
         :param OU: organizational unit of the current semester.
         :return: True iff policy was successfully created and attached.
@@ -384,7 +384,7 @@ class AWSSync:
             return False
         self.logger.info("Successfully created SCP policy.")
         
-        self.logger.info("Attaching SCP policy to organization unit for current semester.")
+        self.logger.info("Attaching SCP policy to organizational unit for current semester.")
         self.attach_scp_policy(policy["PolicySummary"]["Id"], OU["Id"])
         if self.fail:
             self.logger.info("Failed to attach SCP policy.")

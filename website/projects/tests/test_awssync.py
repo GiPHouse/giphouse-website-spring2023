@@ -1,7 +1,7 @@
 """Tests for awssync.py."""
 
 import json
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import boto3
 
@@ -43,6 +43,9 @@ class AWSSyncTest(TestCase):
         self.mailing_list = MailingList.objects.create(address="test1")
         self.project = Project.objects.create(id=1, name="test1", semester=self.semester, slug="test1")
         self.mailing_list.projects.add(self.project)
+
+    def simulateFailure(self):
+        self.sync.fail = True
 
     def test_button_pressed(self):
         """Test button_pressed function."""
@@ -494,6 +497,69 @@ class AWSSyncTest(TestCase):
                 mocker.return_value = True, organization_info
                 success = self.sync.pipeline_preconditions()
 
+        self.assertFalse(success)
+
+    @mock_organizations
+    def test_pipeline_create_scp_policy(self):
+        self.sync.create_aws_organization()
+
+        policy_name = "DenyAll"
+        policy_description = "Deny all access."
+        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
+        
+        policy = self.sync.pipeline_create_scp_policy()
+
+        self.assertFalse(self.sync.fail)
+        self.assertEqual(policy["PolicySummary"]["Name"], policy_name)
+        self.assertEqual(policy["PolicySummary"]["Description"], policy_description)
+        self.assertEqual(policy["Content"], json.dumps(policy_content))
+
+    @mock_organizations
+    def test_pipeline_create_scp_policy__exception(self):
+        self.sync.create_aws_organization()
+
+        with patch("botocore.client.BaseClient._make_api_call", self.mock_api):
+            policy = self.sync.pipeline_create_scp_policy()
+
+        self.assertTrue(self.sync.fail)
+        self.assertIsNone(policy)
+    
+    @mock_organizations
+    def test_pipeline_policy(self):
+        moto_client = boto3.client("organizations")
+        org_id= moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
+        OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
+        
+        success = self.sync.pipeline_policy(OU)
+        
+        self.assertTrue(success)
+
+    @mock_organizations
+    def test_pipeline_policy__create_failure(self):
+        moto_client = boto3.client("organizations")
+        org_id= moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
+        OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
+        
+        self.sync.pipeline_create_scp_policy = MagicMock(return_value=None)
+        self.sync.attach_scp_policy = MagicMock()
+
+        success = self.sync.pipeline_policy(OU)
+        
+        self.sync.pipeline_create_scp_policy.assert_called_once()
+        self.sync.attach_scp_policy.assert_not_called()
+        self.assertFalse(success)
+
+    @mock_organizations
+    def test_pipeline_policy__attach_failure(self):
+        moto_client = boto3.client("organizations")
+        org_id= moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
+        OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
+        
+        self.sync.attach_scp_policy = MagicMock(side_effect=self.simulateFailure())
+
+        success = self.sync.pipeline_policy(OU)
+        
+        self.sync.attach_scp_policy.assert_called_once()
         self.assertFalse(success)
 
     @mock_sts
