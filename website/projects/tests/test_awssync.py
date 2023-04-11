@@ -647,6 +647,114 @@ class AWSSyncTest(TestCase):
         self.assertEquals(failure_reason, "ITERATION_OU_CREATION_FAILED")
         self.assertTrue(self.sync.fail)
 
+    def test_pipeline_create_account(self):
+        self.sync.create_aws_organization()
+
+        email = "alice@example.com"
+        username = "alice"
+        success, response = self.sync.pipeline_create_account(email, username)
+
+        self.assertTrue(success)
+        self.assertIsNotNone(response)
+
+    def test_pipeline_create_account__exception_create_account(self):
+        self.sync.create_aws_organization()
+
+        email = "alice@example.com"
+        username = "alice"
+
+        with patch("boto3.client") as mocker:
+            mocker().create_account.side_effect = ClientError({}, "create_account")
+            success, response = self.sync.pipeline_create_account(email, username)
+
+        self.assertFalse(success)
+        self.assertEquals(response, "CLIENTERROR_CREATE_ACCOUNT")
+
+    def test_pipeline_create_account__exception_describe_account_status(self):
+        self.sync.create_aws_organization()
+
+        email = "alice@example.com"
+        username = "alice"
+
+        with patch("boto3.client") as mocker:
+            mocker().describe_create_account_status.side_effect = ClientError({}, "describe_create_account_status")
+            success, response = self.sync.pipeline_create_account(email, username)
+
+        self.assertFalse(success)
+        self.assertEquals(response, "CLIENTERROR_DESCRIBE_CREATE_ACCOUNT_STATUS")
+
+    def test_pipeline_create_account__state_failed(self):
+        self.sync.create_aws_organization()
+
+        email = "alice@example.com"
+        username = "alice"
+
+        with patch("boto3.client") as mocker:
+            response = {"CreateAccountStatus": {"State": "FAILED", "FailureReason": "EMAIL_ALREADY_EXISTS"}}
+            mocker().describe_create_account_status.return_value = response
+            success, response = self.sync.pipeline_create_account(email, username)
+
+        self.assertFalse(success)
+        self.assertEquals(response, "EMAIL_ALREADY_EXISTS")
+
+    def test_pipeline_create_account__state_in_progress(self):
+        self.sync.create_aws_organization()
+
+        email = "alice@example.com"
+        username = "alice"
+
+        with patch("boto3.client") as mocker:
+            response = {
+                "CreateAccountStatus": {
+                    "State": "IN_PROGRESS",
+                }
+            }
+            mocker().describe_create_account_status.return_value = response
+            success, response = self.sync.pipeline_create_account(email, username)
+
+        self.assertFalse(success)
+        self.assertEquals(response, "STILL_IN_PROGRESS")
+
+    def test_pipeline_create_and_move_accounts(self):
+        moto_client = boto3.client("organizations")
+        self.sync.create_aws_organization()
+
+        new_member_accounts = [("alice@example.com", "alice"), ("bob@example.com", "bob")]
+        root_id = moto_client.list_roots()["Roots"][0]["Id"]
+        course_iteration_id = self.sync.create_course_iteration_OU("2023Fall")
+
+        success = self.sync.pipeline_create_and_move_accounts(new_member_accounts, root_id, course_iteration_id)
+        self.assertTrue(success)
+
+    def test_pipeline_create_and_move_accounts__email_exists(self):
+        moto_client = boto3.client("organizations")
+        self.sync.create_aws_organization()
+
+        new_member_accounts = [("alice@example.com", "alice"), ("bob@example.com", "bob")]
+        root_id = moto_client.list_roots()["Roots"][0]["Id"]
+        course_iteration_id = self.sync.create_course_iteration_OU("2023Fall")
+
+        with patch("projects.awssync.AWSSync.pipeline_create_account") as mocker:
+            mocker.return_value = False, "EMAIL_ALREADY_EXISTS"
+            success = self.sync.pipeline_create_and_move_accounts(new_member_accounts, root_id, course_iteration_id)
+
+        self.assertFalse(success)
+
+    def test_pipeline_create_and_move_accounts__exception_move_account(self):
+        moto_client = boto3.client("organizations")
+        self.sync.create_aws_organization()
+
+        new_member_accounts = [("alice@example.com", "alice"), ("bob@example.com", "bob")]
+        root_id = moto_client.list_roots()["Roots"][0]["Id"]
+        course_iteration_id = self.sync.create_course_iteration_OU("2023Fall")
+
+        self.sync.pipeline_create_account = MagicMock(return_value=(True, 1234))
+        with patch("boto3.client") as mocker:
+            mocker().move_account.side_effect = ClientError({}, "move_account")
+            success = self.sync.pipeline_create_and_move_accounts(new_member_accounts, root_id, course_iteration_id)
+
+        self.assertFalse(success)
+
 
 class AWSSyncListTest(TestCase):
     """Test AWSSyncList class."""

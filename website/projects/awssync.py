@@ -523,12 +523,12 @@ class AWSSync:
         course_iteration_ou_id = None
 
         aws_tree = None
-        current_course_iteration_exists, response = self.pipeline_update_current_course_iteration_ou(aws_tree) 
+        current_course_iteration_exists, response = self.pipeline_update_current_course_iteration_ou(aws_tree)
         if not current_course_iteration_exists:
             failure_reason = response
             self.logger.debug(failure_reason)
             return False
-        
+
         course_iteration_ou_id = response
 
         # Attach SCP policy to course iteration OU.
