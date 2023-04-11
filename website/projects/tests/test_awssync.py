@@ -445,3 +445,17 @@ class AWSTreeChecksTest(TestCase):
         # Test when double
         val1, val2 = self.sync.check_double_iteration_names(self.aws_tree3)
         self.assertEqual((val1, val2), (True, "Fall 2020"))
+
+    def test_AWSTree_equals(self):
+        self.assertEqual(self.aws_tree1, self.aws_tree1)
+        self.assertNotEqual(self.aws_tree1, self.aws_tree2)
+        with self.assertRaises(TypeError):
+            awssync.AWSTree("", "", []) == []
+            self.assertRaises(TypeError)
+
+    def test_Iteration_equals(self):
+        self.assertEqual(self.aws_tree1.iterations[0], self.aws_tree1.iterations[0])
+        self.assertNotEqual(self.aws_tree1.iterations[0], self.aws_tree1.iterations[1])
+        with self.assertRaises(TypeError):
+            awssync.Iteration("", "", []) == []
+            self.assertRaises(TypeError)

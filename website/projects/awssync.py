@@ -53,6 +53,12 @@ class Iteration:
         """Overload to string function for Iteration datatype."""
         return f"Iteration('{self.name}', '{self.id}', {self.members})"
 
+    def __eq__(self, other: Iteration) -> bool:
+        """Overload equals operator for Iteration objects."""
+        if not isinstance(other, Iteration):
+            raise TypeError("Must compare to object of type Iteration")
+        return self.name == other.name and self.id == other.id and self.members == other.members
+
 
 class AWSTree:
     """Tree structure for AWS data."""
@@ -66,6 +72,12 @@ class AWSTree:
     def __repr__(self):
         """Overload to string function for AWSTree object."""
         return f"AWSTree('{self.name}', '{self.id}', {self.iterations})"
+
+    def __eq__(self, other: AWSTree) -> bool:
+        """Overload equals operator for AWSTree objects."""
+        if not isinstance(other, AWSTree):
+            raise TypeError("Must compare to object of type AWSTree")
+        return self.name == other.name and self.id == other.id and self.iterations == other.iterations
 
     def awstree_to_syncdata_list(self):
         """Converges AWSTree to list of SyncData elements."""
