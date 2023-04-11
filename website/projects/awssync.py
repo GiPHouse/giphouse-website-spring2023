@@ -357,7 +357,7 @@ class AWSSync:
             return False
 
         return True
-    
+
     def pipeline_create_scp_policy(self):
         """
         Creates an SCP policy to be attached to the organizational unit of the current semester.
@@ -383,7 +383,7 @@ class AWSSync:
             self.logger.info("Failed to create SCP policy.")
             return False
         self.logger.info("Successfully created SCP policy.")
-        
+
         self.logger.info("Attaching SCP policy to organizational unit for current semester.")
         self.attach_scp_policy(policy["PolicySummary"]["Id"], OU["Id"])
         if self.fail:
@@ -461,6 +461,24 @@ class AWSSync:
                 overall_success = False
 
         return overall_success
+
+    def update_current_course_iteration_ou(self, aws_tree):
+        """
+        Update the AWS tree with the new course iteration OU's.
+
+        :param aws_tree:               The AWS tree to be checked.
+        :returns:                      True, iteration_id on success and otherwise False, failure_reason.
+        """
+
+        is_current_iteration, iteration_id = self.check_current_ou(aws_tree)
+
+        if not is_current_iteration:
+            iteration_id = self.create_course_iteration_OU(iteration_id)
+
+        if not self.fail:
+            return True, iteration_id
+        else:
+            return False, "ITERATION_OU_CREATION_FAILED"
 
     def pipeline(self):
         """

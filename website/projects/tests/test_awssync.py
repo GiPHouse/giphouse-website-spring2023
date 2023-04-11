@@ -506,7 +506,7 @@ class AWSSyncTest(TestCase):
         policy_name = "DenyAll"
         policy_description = "Deny all access."
         policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
-        
+
         policy = self.sync.pipeline_create_scp_policy()
 
         self.assertFalse(self.sync.fail)
@@ -523,28 +523,28 @@ class AWSSyncTest(TestCase):
 
         self.assertTrue(self.sync.fail)
         self.assertIsNone(policy)
-    
+
     @mock_organizations
     def test_pipeline_policy(self):
         moto_client = boto3.client("organizations")
-        org_id= moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
+        org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
         OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
-        
+
         success = self.sync.pipeline_policy(OU)
-        
+
         self.assertTrue(success)
 
     @mock_organizations
     def test_pipeline_policy__create_failure(self):
         moto_client = boto3.client("organizations")
-        org_id= moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
+        org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
         OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
-        
+
         self.sync.pipeline_create_scp_policy = MagicMock(return_value=None)
         self.sync.attach_scp_policy = MagicMock()
 
         success = self.sync.pipeline_policy(OU)
-        
+
         self.sync.pipeline_create_scp_policy.assert_called_once()
         self.sync.attach_scp_policy.assert_not_called()
         self.assertFalse(success)
@@ -552,13 +552,13 @@ class AWSSyncTest(TestCase):
     @mock_organizations
     def test_pipeline_policy__attach_failure(self):
         moto_client = boto3.client("organizations")
-        org_id= moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
+        org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
         OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
-        
+
         self.sync.attach_scp_policy = MagicMock(side_effect=self.simulateFailure())
 
         success = self.sync.pipeline_policy(OU)
-        
+
         self.sync.attach_scp_policy.assert_called_once()
         self.assertFalse(success)
 
@@ -596,6 +596,39 @@ class AWSSyncTest(TestCase):
             success = self.sync.pipeline()
 
         self.assertTrue(success)
+
+    @mock_organizations
+    def test_update_current_course_iteration_ou___failure_check_current_ou(self):
+
+        self.sync.check_current_ou = MagicMock(return_value=(False, None))
+
+        self.sync.create_aws_organization()
+        success, id = self.sync.update_aws_tree(None)
+        self.assertTrue(success)
+        self.assertFalse(id is None)
+
+    @mock_organizations
+    def test_update_current_course_iteration_ou___success(self):
+
+        self.sync.check_current_ou = MagicMock(return_value=(True, "1234"))
+
+        self.sync.create_aws_organization()
+        success, id = self.sync.update_aws_tree(None)
+        self.assertTrue(success)
+        self.assertEquals(id, "1234")
+
+    @mock_organizations
+    def test_update_current_course_iteration_ou___failure_create_ou(self):
+
+        self.sync.check_current_ou = MagicMock(return_value=(False, None))
+        self.sync.create_course_iteration_OU = MagicMock(side_effect=self.simulateFailure())
+
+        self.sync.create_aws_organization()
+        success, failure_reason = self.sync.update_aws_tree(None)
+
+        self.assertFalse(success)
+        self.assertEquals(failure_reason, "ITERATION_OU_CREATION_FAILED")
+        self.assertTrue(self.sync.fail)
 
 
 class AWSSyncListTest(TestCase):
