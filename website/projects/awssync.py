@@ -166,10 +166,10 @@ class AWSSync:
             }
             data = []
             years_OU = [(year["Id"], year["Name"]) for year in response["OrganizationalUnits"]]
-            for year in years_OU:
-                response = client.list_accounts_for_parent(ParentId=year[0])
+            for ou_id, ou_name in years_OU:
+                response = client.list_accounts_for_parent(ParentId=ou_id)
                 children = response["Accounts"]
-                data.append({"name": year[1], "id": year[0], "data": children})
+                data.append({"name": ou_name, "id": ou_id, "data": children})
             aws_tree["data"] = data
             return aws_tree
         except ClientError as error:
