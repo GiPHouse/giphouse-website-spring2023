@@ -5,6 +5,7 @@ from unittest.mock import MagicMock, patch
 
 import boto3
 
+import botocore
 from botocore.exceptions import ClientError
 
 from django.test import TestCase
@@ -43,6 +44,11 @@ class AWSSyncTest(TestCase):
         self.mailing_list = MailingList.objects.create(address="test1")
         self.project = Project.objects.create(id=1, name="test1", semester=self.semester, slug="test1")
         self.mailing_list.projects.add(self.project)
+        self.mock_org = mock_organizations()
+        self.mock_org.start()
+
+    def tearDown(self):
+        self.mock_org.stop()
 
     def simulateFailure(self):
         self.sync.fail = True
@@ -51,6 +57,42 @@ class AWSSyncTest(TestCase):
         """Test button_pressed function."""
         return_value = self.sync.button_pressed()
         self.assertTrue(return_value)
+
+    def test_create_aws_organization(self):
+        moto_client = boto3.client("organizations")
+        org = self.sync
+        org.create_aws_organization()
+        describe_org = moto_client.describe_organization()["Organization"]
+        self.assertEqual(describe_org, org.org_info)
+
+    def test_create_aws_organization__exception(self):
+        org = self.sync
+        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
+            org.create_aws_organization()
+        self.assertTrue(org.fail)
+        self.assertIsNone(org.org_info)
+
+    def test_create_course_iteration_OU(self):
+        moto_client = boto3.client("organizations")
+        org = self.sync
+        org.create_aws_organization()
+        org.create_course_iteration_OU(1)
+        describe_unit = moto_client.describe_organizational_unit(OrganizationalUnitId=org.iterationOU_info["Id"])[
+            "OrganizationalUnit"
+        ]
+        self.assertEqual(describe_unit, org.iterationOU_info)
+
+    def test_create_course_iteration_OU_without_organization(self):
+        org = self.sync
+        org.create_course_iteration_OU(1)
+        self.assertTrue(org.fail)
+
+    def test_create_course_iteration_OU__exception(self):
+        org = self.sync
+        org.create_aws_organization()
+        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
+            org.create_course_iteration_OU(1)
+        self.assertTrue(org.fail)
 
     def test_get_all_mailing_lists(self):
         """Test get_all_mailing_lists function."""
@@ -93,73 +135,6 @@ class AWSSyncTest(TestCase):
         self.assertIsInstance(email_id, list)
         self.assertEqual(email_id, [])
 
-    def mock_api(self, operation_name, kwarg):
-        if operation_name == "CreateOrganization":
-            raise ClientError(
-                {
-                    "Error": {
-                        "Message": "The AWS account is already a member of an organization.",
-                        "Code": "AlreadyInOrganizationException",
-                    },
-                    "ResponseMetadata": {
-                        "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                        "HTTPStatusCode": 400,
-                        "HTTPHeaders": {
-                            "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                            "content-type": "application/x-amz-json-1.1",
-                            "content-length": "111",
-                            "date": "Sun, 01 Jan 2023 00:00:00 GMT",
-                            "connection": "close",
-                        },
-                        "RetryAttempts": 0,
-                    },
-                    "Message": "The AWS account is already a member of an organization.",
-                },
-                "create_organization",
-            )
-
-        if operation_name == "CreatePolicy":
-            raise ClientError(
-                {
-                    "Error": {
-                        "Message": """The provided policy document does not meet the
-                                      requirements of the specified policy type.""",
-                        "Code": "MalformedPolicyDocumentException",
-                    },
-                    "ResponseMetadata": {
-                        "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                        "HTTPStatusCode": 400,
-                        "HTTPHeaders": {
-                            "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
-                            "content-type": "application/x-amz-json-1.1",
-                            "content-length": "147",
-                            "date": "Sun, 01 Jan 2023 00:00:00 GMT",
-                            "connection": "close",
-                        },
-                        "RetryAttempts": 0,
-                    },
-                    "Message": """The provided policy document does not meet the
-                                  requirements of the specified policy type.""",
-                },
-                "create_policy",
-            )
-
-    @mock_organizations
-    def test_create_aws_organization(self):
-        moto_client = boto3.client("organizations")
-        org = self.sync
-        org.create_aws_organization()
-        describe_org = moto_client.describe_organization()["Organization"]
-        self.assertEqual(describe_org, org.org_info)
-
-    @patch("botocore.client.BaseClient._make_api_call", mock_api)
-    def test_create_aws_organization__exception(self):
-        org = self.sync
-        org.create_aws_organization()
-        self.assertTrue(org.fail)
-        self.assertIsNone(org.org_info)
-
-    @mock_organizations
     def test_create_scp_policy(self):
         self.sync.create_aws_organization()
 
@@ -173,7 +148,6 @@ class AWSSyncTest(TestCase):
         self.assertEqual(policy["PolicySummary"]["Description"], policy_description)
         self.assertEqual(policy["Content"], json.dumps(policy_content))
 
-    @mock_organizations
     def test_create_scp_policy__exception(self):
         self.sync.create_aws_organization()
 
@@ -183,13 +157,12 @@ class AWSSyncTest(TestCase):
             "Version": "2012-10-17",
             "Statement": [{"Effect": "NonExistentEffect", "Action": "*", "Resource": "*"}],
         }
-        with patch("botocore.client.BaseClient._make_api_call", self.mock_api):
+        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
             policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
 
         self.assertTrue(self.sync.fail)
         self.assertIsNone(policy)
 
-    @mock_organizations
     def test_attach_scp_policy(self):
         moto_client = boto3.client("organizations")
         self.sync.create_aws_organization()
@@ -209,7 +182,67 @@ class AWSSyncTest(TestCase):
         self.assertIn(policy_id, current_scp_policy_ids)
         self.assertFalse(self.sync.fail)
 
-    @mock_organizations
+    def test_attach_scp_policy__exception(self):
+        self.sync.create_aws_organization()
+
+        policy_name = "DenyAll"
+        policy_description = "Deny all access."
+        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
+        policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
+
+        policy_id = policy["PolicySummary"]["Id"]
+        root_id = self.sync.org_info["Id"]  # Retrieves organization ID, not root ID, resulting in ClientError.
+        self.sync.attach_scp_policy(policy_id, root_id)
+
+        self.assertTrue(self.sync.fail)
+
+    def test_create_scp_policy(self):
+        self.sync.create_aws_organization()
+
+        policy_name = "DenyAll"
+        policy_description = "Deny all access."
+        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
+        policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
+
+        self.assertFalse(self.sync.fail)
+        self.assertEqual(policy["PolicySummary"]["Name"], policy_name)
+        self.assertEqual(policy["PolicySummary"]["Description"], policy_description)
+        self.assertEqual(policy["Content"], json.dumps(policy_content))
+
+    def test_create_scp_policy__exception(self):
+        self.sync.create_aws_organization()
+
+        policy_name = "DenyAll"
+        policy_description = "Deny all access."
+        policy_content = {
+            "Version": "2012-10-17",
+            "Statement": [{"Effect": "NonExistentEffect", "Action": "*", "Resource": "*"}],
+        }
+        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
+            policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
+
+        self.assertTrue(self.sync.fail)
+        self.assertIsNone(policy)
+
+    def test_attach_scp_policy(self):
+        moto_client = boto3.client("organizations")
+        self.sync.create_aws_organization()
+
+        policy_name = "DenyAll"
+        policy_description = "Deny all access."
+        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
+        policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
+
+        policy_id = policy["PolicySummary"]["Id"]
+        root_id = moto_client.list_roots()["Roots"][0]["Id"]
+        self.sync.attach_scp_policy(policy_id, root_id)
+
+        current_scp_policies = moto_client.list_policies_for_target(TargetId=root_id, Filter="SERVICE_CONTROL_POLICY")
+        current_scp_policy_ids = [scp_policy["Id"] for scp_policy in current_scp_policies["Policies"]]
+
+        self.assertIn(policy_id, current_scp_policy_ids)
+        self.assertFalse(self.sync.fail)
+
     def test_attach_scp_policy__exception(self):
         self.sync.create_aws_organization()
 
@@ -279,7 +312,6 @@ class AWSSyncTest(TestCase):
 
         self.assertFalse(success)
 
-    @mock_organizations
     def test_check_organization_existence(self):
         moto_client = boto3.client("organizations")
         organization_create_info = moto_client.create_organization(FeatureSet="ALL")["Organization"]
@@ -288,7 +320,6 @@ class AWSSyncTest(TestCase):
         self.assertTrue(success)
         self.assertEqual(organization_create_info, organization_describe_info)
 
-    @mock_organizations
     def test_check_organization_existence__exception(self):
         with patch("boto3.client") as mocker:
             mocker.describe_organization.side_effect = ClientError({}, "describe_organization")
@@ -299,7 +330,6 @@ class AWSSyncTest(TestCase):
         self.assertIsNone(organization_info)
 
     @mock_sts
-    @mock_organizations
     def test_check_is_management_account(self):
         moto_client = boto3.client("organizations")
 
@@ -316,7 +346,6 @@ class AWSSyncTest(TestCase):
         success_acc = self.sync.check_is_management_account(caller_identity_info, organization_info)
         self.assertFalse(success_acc)
 
-    @mock_organizations
     def test_check_scp_enabled(self):
         moto_client = boto3.client("organizations")
 
@@ -336,7 +365,6 @@ class AWSSyncTest(TestCase):
         self.assertFalse(scp_is_enabled)
 
     @mock_sts
-    @mock_organizations
     def test_pipeline_preconditions__all_success(self):
         # Create organization.
         moto_client = boto3.client("organizations")
@@ -430,7 +458,6 @@ class AWSSyncTest(TestCase):
         self.assertFalse(success)
 
     @mock_sts
-    @mock_organizations
     def test_pipeline_preconditions__no_management(self):
         moto_client = boto3.client("organizations")
         moto_client.create_organization(FeatureSet="ALL")
@@ -463,7 +490,6 @@ class AWSSyncTest(TestCase):
         self.assertFalse(success)
 
     @mock_sts
-    @mock_organizations
     def test_pipeline_preconditions__no_scp(self):
         moto_client = boto3.client("organizations")
 
@@ -499,7 +525,6 @@ class AWSSyncTest(TestCase):
 
         self.assertFalse(success)
 
-    @mock_organizations
     def test_pipeline_create_scp_policy(self):
         self.sync.create_aws_organization()
 
@@ -514,17 +539,15 @@ class AWSSyncTest(TestCase):
         self.assertEqual(policy["PolicySummary"]["Description"], policy_description)
         self.assertEqual(policy["Content"], json.dumps(policy_content))
 
-    @mock_organizations
     def test_pipeline_create_scp_policy__exception(self):
         self.sync.create_aws_organization()
 
-        with patch("botocore.client.BaseClient._make_api_call", self.mock_api):
+        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
             policy = self.sync.pipeline_create_scp_policy()
 
         self.assertTrue(self.sync.fail)
         self.assertIsNone(policy)
 
-    @mock_organizations
     def test_pipeline_policy(self):
         moto_client = boto3.client("organizations")
         org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
@@ -534,7 +557,6 @@ class AWSSyncTest(TestCase):
 
         self.assertTrue(success)
 
-    @mock_organizations
     def test_pipeline_policy__create_failure(self):
         moto_client = boto3.client("organizations")
         org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
@@ -549,7 +571,6 @@ class AWSSyncTest(TestCase):
         self.sync.attach_scp_policy.assert_not_called()
         self.assertFalse(success)
 
-    @mock_organizations
     def test_pipeline_policy__attach_failure(self):
         moto_client = boto3.client("organizations")
         org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
@@ -563,7 +584,6 @@ class AWSSyncTest(TestCase):
         self.assertFalse(success)
 
     @mock_sts
-    @mock_organizations
     def test_pipeline(self):
         moto_client = boto3.client("organizations")
 
@@ -597,34 +617,31 @@ class AWSSyncTest(TestCase):
 
         self.assertTrue(success)
 
-    @mock_organizations
     def test_pipeline_update_current_course_iteration_ou___failure_check_current_ou(self):
 
         self.sync.check_current_ou = MagicMock(return_value=(False, None))
 
         self.sync.create_aws_organization()
-        success, id = self.sync.update_aws_tree(None)
+        success, id = self.sync.pipeline_update_current_course_iteration_ou(None)
         self.assertTrue(success)
         self.assertFalse(id is None)
 
-    @mock_organizations
     def test_pipeline_update_current_course_iteration_ou___success(self):
 
         self.sync.check_current_ou = MagicMock(return_value=(True, "1234"))
 
         self.sync.create_aws_organization()
-        success, id = self.sync.update_aws_tree(None)
+        success, id = self.sync.pipeline_update_current_course_iteration_ou(None)
         self.assertTrue(success)
         self.assertEquals(id, "1234")
 
-    @mock_organizations
     def test_pipeline_update_current_course_iteration_ou___failure_create_ou(self):
 
         self.sync.check_current_ou = MagicMock(return_value=(False, None))
         self.sync.create_course_iteration_OU = MagicMock(side_effect=self.simulateFailure())
 
         self.sync.create_aws_organization()
-        success, failure_reason = self.sync.update_aws_tree(None)
+        success, failure_reason = self.sync.pipeline_update_current_course_iteration_ou(None)
 
         self.assertFalse(success)
         self.assertEquals(failure_reason, "ITERATION_OU_CREATION_FAILED")
@@ -661,3 +678,79 @@ class AWSSyncListTest(TestCase):
         gip_list = [self.test1, self.test2]
         aws_list = [self.test2, self.test3]
         self.assertEquals(self.sync.generate_aws_sync_list(gip_list, aws_list), [self.test1])
+
+
+class AWSAPITalkerTest(TestCase):
+    def mock_api(self, operation_name, kwarg):
+        if operation_name == "CreateOrganization":
+            raise ClientError(
+                {
+                    "Error": {
+                        "Message": "The AWS account is already a member of an organization.",
+                        "Code": "AlreadyInOrganizationException",
+                    },
+                    "ResponseMetadata": {
+                        "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                        "HTTPStatusCode": 400,
+                        "HTTPHeaders": {
+                            "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                            "content-type": "application/x-amz-json-1.1",
+                            "content-length": "111",
+                            "date": "Sun, 01 Jan 2023 00:00:00 GMT",
+                            "connection": "close",
+                        },
+                        "RetryAttempts": 0,
+                    },
+                    "Message": "The AWS account is already a member of an organization.",
+                },
+                "create_organization",
+            )
+        if operation_name == "CreateOrganizationalUnit":
+            raise ClientError(
+                {
+                    "Error": {
+                        "Message": "The OU already exists.",
+                        "Code": "ParentNotFoundException",
+                    },
+                    "ResponseMetadata": {
+                        "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                        "HTTPStatusCode": 400,
+                        "HTTPHeaders": {
+                            "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                            "content-type": "application/x-amz-json-1.1",
+                            "content-length": "111",
+                            "date": "Sun, 01 Jan 2023 00:00:00 GMT",
+                            "connection": "close",
+                        },
+                        "RetryAttempts": 0,
+                    },
+                    "Message": "The OU already exists.",
+                },
+                "create_organizational_unit",
+            )
+        if operation_name == "CreatePolicy":
+            raise ClientError(
+                {
+                    "Error": {
+                        "Message": """The provided policy document does not meet the
+                                      requirements of the specified policy type.""",
+                        "Code": "MalformedPolicyDocumentException",
+                    },
+                    "ResponseMetadata": {
+                        "RequestId": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                        "HTTPStatusCode": 400,
+                        "HTTPHeaders": {
+                            "x-amzn-requestid": "ffffffff-ffff-ffff-ffff-ffffffffffff",
+                            "content-type": "application/x-amz-json-1.1",
+                            "content-length": "147",
+                            "date": "Sun, 01 Jan 2023 00:00:00 GMT",
+                            "connection": "close",
+                        },
+                        "RetryAttempts": 0,
+                    },
+                    "Message": """The provided policy document does not meet the
+                                  requirements of the specified policy type.""",
+                },
+                "create_policy",
+            )
+        return botocore.client.BaseClient._make_api_call(self, operation_name, kwarg)
