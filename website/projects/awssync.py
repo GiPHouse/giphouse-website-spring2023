@@ -34,7 +34,8 @@ class SyncData:
         )
 
     def __repr__(self):
-        return f"{self.project_email}, {self.project_slug}, {self.project_semester}"
+        return f"{self.project_email}, {self.project_slug},\
+              {self.project_semester}"
 
 
 class Iteration:
@@ -48,6 +49,7 @@ class Iteration:
 
     def __repr__(self):
         return f"Iteration({self.name}, {self.id}, {self.members})"
+
 
 class AWSTree:
     """
@@ -73,6 +75,7 @@ class AWSTree:
 
         return awslist
 
+
 class AWSSync:
     """Synchronise with Amazon Web Services."""
 
@@ -91,7 +94,8 @@ class AWSSync:
         :return: True if function executes successfully
         """
         self.logger.info("Pressed button")
-        self.logger.info(self.get_emails_with_teamids())
+        self.logger.info(
+            self.get_emails_with_teamids())
         return True
 
     def get_all_mailing_lists(self):
@@ -130,7 +134,8 @@ class AWSSync:
         return email_ids
 
     def create_aws_organization(self):
-        """Create an AWS organization with the current user as the management account."""
+        """Create an AWS organization with the current user
+          as the management account."""
         client = boto3.client("organizations")
         try:
             response = client.create_organization(FeatureSet="ALL")
@@ -149,23 +154,23 @@ class AWSSync:
         Generate the list of users that are registered on the GiPhouse website,
           but are not yet invited for AWS.
 
-        This includes their ID and email address, to be able to put users in 
+        This includes their ID and email address, to be able to put users in
             the correct AWS orginization later.
         """
         sync_list = [x for x in giphouse_data if x not in aws_data]
         return sync_list
 
-    def create_scp_policy(self, policy_name, policy_description, 
+    def create_scp_policy(self, policy_name, policy_description,
                           policy_content):
         """
         Create a SCP policy.
 
         :param policy_name: The policy name.
         :param policy_description: The policy description.
-        :param policy_content: The policy configuration as a dictionary. 
-        The policy is automatically converted to JSON format, including 
+        :param policy_content: The policy configuration as a dictionary.
+        The policy is automatically converted to JSON format, including
             escaped quotation marks.
-        :return: Details of newly created policy as a dict on success 
+        :return: Details of newly created policy as a dict on success
             and NoneType object otherwise.
         """
         client = boto3.client("organizations")
@@ -195,7 +200,8 @@ class AWSSync:
             client.attach_policy(PolicyId=policy_id, TargetId=target_id)
         except ClientError as error:
             self.fail = True
-            self.logger.error("Something went wrong attaching an SCP policy to a target.")
+            self.logger.error("Something went wrong \
+                              attaching an SCP policy to a target.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
 
@@ -207,7 +213,8 @@ class AWSSync:
         """
         client = boto3.client("organizations")
         try:
-            response = client.list_organizational_units_for_parent(ParentId=parent_ou_id)
+            response = client.list_organizational_units_for_parent(
+                ParentId=parent_ou_id)
             aws_tree = AWSTree("root", parent_ou_id, [])
             for iteration in response["OrganizationalUnits"]:
                 ou_id = iteration["Id"]
@@ -218,7 +225,8 @@ class AWSSync:
                 for child in children:
                     account_id = child["Id"]
                     account_email = child["Email"]
-                    response = client.list_tags_for_resource(ResourceId=account_id)
+                    response = client.list_tags_for_resource(
+                        ResourceId=account_id)
                     tags = response['Tags']
                     merged_tags = {d["Key"]: d["Value"] for d in tags}
                     self.logger.debug(merged_tags)
@@ -226,9 +234,13 @@ class AWSSync:
                                                           "project_semester"]):
                         syncData.append(SyncData(account_email,
                                                  merged_tags["project_slug"],
-                                                 merged_tags["project_semester"]))
+                                                 merged_tags["project_semester"
+                                                             ]))
                     else:
-                        self.logger.error("Could not find project_slug or project_semester tag for account with ID: " + account_id)
+                        self.logger.error("Could not find project_slug or \
+                                          project_semester \
+                                          tag for account \
+                                           with ID: " + account_id)
                         self.fail = True
 
                 aws_tree.iterations.append(Iteration(ou_name, ou_id, syncData))
@@ -238,4 +250,3 @@ class AWSSync:
             self.logger.error("Something went wrong extracting the AWS setup.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
-
