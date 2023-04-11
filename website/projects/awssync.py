@@ -260,12 +260,15 @@ class AWSSync:
         else:
             return False
 
-    def check_current_ou_exists(self, AWSdata: AWSTree, current):
+    def check_current_ou_exists(self, AWSdata: AWSTree, current=None):
         """
         Check if the the OU (organizational unit) for the current semester already exists in AWS.
 
         Get data in tree structure (dictionary) defined in the function that retrieves the AWS data
         """
+        if current is None:
+            current = Semester.objects.get_or_create_current_semester()
+
         for iteration in AWSdata.iterations:
             if current == iteration.name:
                 return (True, iteration.id)

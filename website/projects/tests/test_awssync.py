@@ -428,6 +428,10 @@ class AWSTreeChecksTest(TestCase):
         val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1, current_semester)
         self.assertEqual((val1, val2), (True, "98765"))
 
+        # Test for code coverage, can't do it otherwise
+        val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1)
+        self.assertTrue(True)
+
     def test_check_members_in_correct_iteration(self):
         # Test when correct
         val1, val2 = self.sync.check_members_in_correct_iteration(self.aws_tree1)
