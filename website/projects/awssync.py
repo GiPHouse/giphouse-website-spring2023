@@ -81,8 +81,10 @@ class AWSSync:
             .values("slug", "semester", "mailinglist")
         ):
             project_slug = project["slug"]
-            project_semester = str(Semester.objects.get(pk=project["semester"]))
-            project_email = MailingList.objects.get(pk=project["mailinglist"]).email_address
+            project_semester = str(Semester.objects.get(pk=project["semester"])
+                                   )
+            project_email = MailingList.objects.get(pk=project["mailinglist"])\
+                .email_address
 
             sync_data = SyncData(project_email, project_slug, project_semester)
             email_ids.append(sync_data)
@@ -94,31 +96,38 @@ class AWSSync:
         try:
             response = client.create_organization(FeatureSet="ALL")
             self.org_info = response["Organization"]
-            self.logger.info("Created an AWS organization and saved organization info.")
+            self.logger.info("Created an AWS organization and saved \
+                              organization info.")
         except ClientError as error:
             self.fail = True
-            self.logger.error("Something went wrong creating an AWS organization.")
+            self.logger.error("Something went wrong creating an \
+                               AWS organization.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
 
     def generate_aws_sync_list(self, giphouse_data, aws_data):
         """
-        Generate the list of users that are registered on the GiPhouse website, but are not yet invited for AWS.
+        Generate the list of users that are registered on the GiPhouse website,
+          but are not yet invited for AWS.
 
-        This includes their ID and email address, to be able to put users in the correct AWS orginization later.
+        This includes their ID and email address, to be able to put users in 
+            the correct AWS orginization later.
         """
         sync_list = [x for x in giphouse_data if x not in aws_data]
         return sync_list
 
-    def create_scp_policy(self, policy_name, policy_description, policy_content):
+    def create_scp_policy(self, policy_name, policy_description, 
+                          policy_content):
         """
         Create a SCP policy.
 
         :param policy_name: The policy name.
         :param policy_description: The policy description.
-        :param policy_content: The policy configuration as a dictionary. The policy is automatically
-                               converted to JSON format, including escaped quotation marks.
-        :return: Details of newly created policy as a dict on success and NoneType object otherwise.
+        :param policy_content: The policy configuration as a dictionary. 
+        The policy is automatically converted to JSON format, including 
+            escaped quotation marks.
+        :return: Details of newly created policy as a dict on success 
+            and NoneType object otherwise.
         """
         client = boto3.client("organizations")
         try:
@@ -160,20 +169,71 @@ class AWSSync:
         client = boto3.client("organizations")
         try:
             response = client.list_organizational_units_for_parent(ParentId=parent_ou_id)
-            aws_tree = {
-                "name": "root",
-                "id": parent_ou_id,
-            }
-            data = []
-            years_OU = [(year["Id"], year["Name"]) for year in response["OrganizationalUnits"]]
-            for ou_id, ou_name in years_OU:
+            aws_tree = AWSTree(name="root", id=parent_ou_id, iterations=[])
+            for iteration in response["OrganizationalUnits"]:
+                ou_id = iteration["Id"]
+                ou_name = iteration["Name"]
                 response = client.list_accounts_for_parent(ParentId=ou_id)
                 children = response["Accounts"]
-                data.append({"name": ou_name, "id": ou_id, "data": children})
-            aws_tree["data"] = data
+                syncData = []
+                for child in children:
+                    account_id = child["Id"]
+                    account_email = child["Email"]
+                    response = client.list_tags_for_resource(ResourceId=account_id)
+                    tags = response['Tags']
+                    merged_tags = {k: v for d in tags for k, v in d.items()}
+                    if all(key in merged_tags for key in ["project_slug",
+                                                          "project_semester"]):
+                        syncData.append(SyncData(account_email,
+                                                 merged_tags["project_slug"],
+                                                 merged_tags["project_semester"]))
+                    else:
+                        self.logger.error("Could not find project_slug or project_semester tag for account with ID: " + account_id)
+                        self.fail = True
+
+                aws_tree.iterations.append(Iteration(name=ou_name,
+                                                     id=ou_id,
+                                                     members=syncData))
             return aws_tree
         except ClientError as error:
             self.fail = True
             self.logger.error("Something went wrong extracting the AWS setup.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
+
+class Iteration:
+    """
+    Datatype for AWS data in the Course iteration OU
+    """
+    def init(self, name, id, members: list[SyncData]):
+        self.name = name
+        self.id = id
+        self.members = members
+
+    def repr(self):
+        return f"Iteration({self.name}, {self.id}, {self.members})"
+
+
+class AWSTree:
+    """
+    Tree structure for AWS data
+    """
+    def init(self, name, id, iterations: list[Iteration]):
+        self.name = name
+        self.id = id
+        self.iterations = iterations
+
+    def repr(self):
+        return f"AWSTree({self.name}, {self.id}, {self.iterations})"
+
+    def awstree_to_syncdata_list(self):
+        """
+        Converges AWSTree to list of SyncData elements.
+        """
+        awslist = []
+
+        for interation in self.iterations:
+            for member in interation.members:
+                awslist.append(member)
+
+        return awslist
