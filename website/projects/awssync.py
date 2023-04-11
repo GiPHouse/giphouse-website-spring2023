@@ -311,7 +311,7 @@ class AWSSync:
         client = boto3.client("organizations")
         try:
             response = client.list_organizational_units_for_parent(ParentId=parent_ou_id)
-            aws_tree = AWSTree(name="root", id=parent_ou_id, iterations=[])
+            aws_tree = AWSTree("root", parent_ou_id, [])
             for iteration in response["OrganizationalUnits"]:
                 ou_id = iteration["Id"]
                 ou_name = iteration["Name"]
@@ -323,7 +323,8 @@ class AWSSync:
                     account_email = child["Email"]
                     response = client.list_tags_for_resource(ResourceId=account_id)
                     tags = response['Tags']
-                    merged_tags = {k: v for d in tags for k, v in d.items()}
+                    merged_tags = {d["Key"]: d["Value"] for d in tags}
+                    self.logger.debug(merged_tags)
                     if all(key in merged_tags for key in ["project_slug",
                                                           "project_semester"]):
                         syncData.append(SyncData(account_email,
@@ -333,9 +334,7 @@ class AWSSync:
                         self.logger.error("Could not find project_slug or project_semester tag for account with ID: " + account_id)
                         self.fail = True
 
-                aws_tree.iterations.append(Iteration(name=ou_name,
-                                                     id=ou_id,
-                                                     members=syncData))
+                aws_tree.iterations.append(Iteration(ou_name, ou_id, syncData))
             return aws_tree
         except ClientError as error:
             self.fail = True
@@ -343,39 +342,3 @@ class AWSSync:
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
 
-class Iteration:
-    """
-    Datatype for AWS data in the Course iteration OU
-    """
-    def init(self, name, id, members: list[SyncData]):
-        self.name = name
-        self.id = id
-        self.members = members
-
-    def repr(self):
-        return f"Iteration({self.name}, {self.id}, {self.members})"
-
-
-class AWSTree:
-    """
-    Tree structure for AWS data
-    """
-    def init(self, name, id, iterations: list[Iteration]):
-        self.name = name
-        self.id = id
-        self.iterations = iterations
-
-    def repr(self):
-        return f"AWSTree({self.name}, {self.id}, {self.iterations})"
-
-    def awstree_to_syncdata_list(self):
-        """
-        Converges AWSTree to list of SyncData elements.
-        """
-        awslist = []
-
-        for interation in self.iterations:
-            for member in interation.members:
-                awslist.append(member)
-
-        return awslist
