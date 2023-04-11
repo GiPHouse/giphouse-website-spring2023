@@ -63,42 +63,6 @@ class AWSSyncTest(TestCase):
             org.create_course_iteration_OU(1)
         self.assertTrue(org.fail)
 
-    def test_create_team_OU(self):
-        moto_client = boto3.client("organizations")
-        org = self.sync
-        org.create_aws_organization()
-        org.create_course_iteration_OU(1)
-        org.create_team_OU("team1")
-        response = moto_client.list_organizational_units_for_parent(ParentId=org.iterationOU_info["Id"])
-        ou_names = [ou["Name"] for ou in response["OrganizationalUnits"]]
-        self.assertEqual(ou_names[0], "team1")  # this does not check of team OU is created
-
-    def test_create_team_OU_without_iteration_OU(self):
-        org = self.sync
-        org.create_aws_organization()
-        org.create_team_OU("team1")
-        self.assertTrue(org.fail)
-
-    def test_create_team_OU__exception(self):
-        org = self.sync
-        org.create_aws_organization()
-        org.create_course_iteration_OU(1)
-        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
-            org.create_team_OU("team1")
-        self.assertTrue(org.fail)
-
-    def test_get_children_OU(self):
-        moto_client = boto3.client("organizations")
-        org = self.sync
-        org.create_aws_organization()
-        org.create_course_iteration_OU(1)
-        org.create_team_OU("team1")
-        org.create_team_OU("team2")
-        org.create_team_OU("team3")
-        list_children = moto_client.list_children(ParentId=org.iterationOU_info["Id"], ChildType="ORGANIZATIONAL_UNIT")
-        children = [child["Id"] for child in list_children["Children"]]
-        self.assertEqual(len(children), 3)
-
 
 class AWSAPITalkerTest(TestCase):
     def mock_api(self, operation_name, kwarg):

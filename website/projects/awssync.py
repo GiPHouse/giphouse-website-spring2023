@@ -64,29 +64,3 @@ class AWSSync:
                 self.logger.error(f"Something went wrong creating an OU for course iteration {iteration_id}.")
                 self.logger.debug(f"{error}")
                 self.logger.debug(f"{error.response}")
-
-    def create_team_OU(self, team_id):
-        """
-        Create an OU for the team.
-
-        :param team_id: The ID of the team
-
-        :return: The ID of the OU
-        """
-        client = boto3.client("organizations")
-        if self.iterationOU_info is None:
-            self.logger.info("No iteration OU info found. Creating an OU for the course iteration.")
-            self.fail = True
-        else:
-            try:
-                response = client.create_organizational_unit(
-                    ParentId=self.iterationOU_info["Id"],
-                    Name=f"{team_id}",
-                )
-                self.logger.info(f"Created an OU for team {team_id}.")
-                return response
-            except ClientError as error:
-                self.fail = True
-                self.logger.error(f"Something went wrong creating an OU for team {team_id}.")
-                self.logger.debug(f"{error}")
-                self.logger.debug(f"{error.response}")
