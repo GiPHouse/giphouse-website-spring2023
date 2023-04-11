@@ -598,7 +598,7 @@ class AWSSyncTest(TestCase):
         self.assertTrue(success)
 
     @mock_organizations
-    def test_update_current_course_iteration_ou___failure_check_current_ou(self):
+    def test_pipeline_update_current_course_iteration_ou___failure_check_current_ou(self):
 
         self.sync.check_current_ou = MagicMock(return_value=(False, None))
 
@@ -608,7 +608,7 @@ class AWSSyncTest(TestCase):
         self.assertFalse(id is None)
 
     @mock_organizations
-    def test_update_current_course_iteration_ou___success(self):
+    def test_pipeline_update_current_course_iteration_ou___success(self):
 
         self.sync.check_current_ou = MagicMock(return_value=(True, "1234"))
 
@@ -618,7 +618,7 @@ class AWSSyncTest(TestCase):
         self.assertEquals(id, "1234")
 
     @mock_organizations
-    def test_update_current_course_iteration_ou___failure_create_ou(self):
+    def test_pipeline_update_current_course_iteration_ou___failure_create_ou(self):
 
         self.sync.check_current_ou = MagicMock(return_value=(False, None))
         self.sync.create_course_iteration_OU = MagicMock(side_effect=self.simulateFailure())

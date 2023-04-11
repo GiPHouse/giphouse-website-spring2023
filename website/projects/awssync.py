@@ -462,7 +462,7 @@ class AWSSync:
 
         return overall_success
 
-    def update_current_course_iteration_ou(self, aws_tree):
+    def pipeline_update_current_course_iteration_ou(self, aws_tree):
         """
         Update the AWS tree with the new course iteration OU's.
 
@@ -493,6 +493,15 @@ class AWSSync:
         # TODO: Get synchronization data.
         # TODO: Check/create course iteration OU.
         course_iteration_ou_id = None
+
+        aws_tree = None
+        current_course_iteration_exists, response = self.update_current_course_iteration_ou(aws_tree) 
+        if not current_course_iteration_exists:
+            failure_reason = response
+            self.logger.debug(failure_reason)
+            return False
+        
+        course_iteration_ou_id = response
 
         # Attach SCP policy to course iteration OU.
         if not self.pipeline_policy(course_iteration_ou_id):
