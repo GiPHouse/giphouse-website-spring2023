@@ -301,6 +301,7 @@ class AWSAPITalkerTest(TestCase):
             )
         return botocore.client.BaseClient._make_api_call(self, operation_name, kwarg)
 
+
 class AWSTreeChecksTest(TestCase):
     """Test checks done on AWSTree data struncture."""
 

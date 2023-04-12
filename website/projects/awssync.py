@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import json
-
 import logging
 
 import boto3
@@ -234,8 +233,8 @@ class AWSSync:
             self.logger.error("Something went wrong attaching an SCP policy to a target.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
-    
-    #TODO: check if this function is really needed
+
+    # TODO: check if this function is really needed
 
     def check_for_double_member_email(self, aws_list: list[SyncData], sync_list: list[SyncData]):
         """
