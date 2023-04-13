@@ -35,7 +35,6 @@ class SyncData:
         )
 
     def __repr__(self):
-<<<<<<< HEAD
         """Overload to string function for SyncData type."""
         return f"SyncData('{self.project_email}', '{self.project_slug}', \
             '{self.project_semester}')"
@@ -92,10 +91,6 @@ class AWSTree:
 
         return awslist
 
-=======
-        return f"{self.project_email}, {self.project_slug},\
-              {self.project_semester}"
->>>>>>> 11-get-aws-data
 
 class AWSSync:
     """Synchronise with Amazon Web Services."""
@@ -258,7 +253,6 @@ class AWSSync:
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
 
-<<<<<<< HEAD
     # TODO: check if this function is really needed
 
     def check_for_double_member_email(self,
@@ -324,8 +318,6 @@ class AWSSync:
             return (True, doubles)
         return (False, None)
 
-=======
->>>>>>> 11-get-aws-data
     def extract_aws_setup(self, parent_ou_id):
         """
         Gives a list of all the children of the parent OU.

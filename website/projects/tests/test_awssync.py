@@ -214,7 +214,6 @@ class AWSSyncTest(TestCase):
         aws_tree_test = awssync.AWSTree("root", root_id, [iteration_test])
         self.assertEquals(aws_tree, aws_tree_test)
 
-<<<<<<< HEAD
     @mock_organizations
     def test_get_aws_data_no_client(self):
         boto3.client("organizations")
@@ -240,8 +239,6 @@ class AWSSyncTest(TestCase):
         self.sync.extract_aws_setup(root_id)
         self.assertTrue(self.sync.fail)
 
-=======
->>>>>>> 11-get-aws-data
 
 class AWSSyncListTest(TestCase):
     """Test AWSSyncList class."""
