@@ -36,8 +36,7 @@ class SyncData:
 
     def __repr__(self):
         """Overload to string function for SyncData type."""
-        return f"SyncData('{self.project_email}', '{self.project_slug}', \
-            '{self.project_semester}')"
+        return f"SyncData('{self.project_email}', '{self.project_slug}', '{self.project_semester}')"
 
 
 class Iteration:
