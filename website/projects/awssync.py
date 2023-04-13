@@ -57,7 +57,8 @@ class Iteration:
         """Overload equals operator for Iteration objects."""
         if not isinstance(other, Iteration):
             raise TypeError("Must compare to object of type Iteration")
-        return self.name == other.name and self.ou_id == other.ou_id and self.members == other.members
+        return self.name == other.name and self.ou_id == other.ou_id and \
+            self.members == other.members
 
 
 class AWSTree:
@@ -77,7 +78,8 @@ class AWSTree:
         """Overload equals operator for AWSTree objects."""
         if not isinstance(other, AWSTree):
             raise TypeError("Must compare to object of type AWSTree")
-        return self.name == other.name and self.ou_id == other.ou_id and self.iterations == other.iterations
+        return self.name == other.name and self.ou_id == other.ou_id and \
+            self.iterations == other.iterations
 
     def awstree_to_syncdata_list(self):
         """Convert AWSTree to list of SyncData elements."""
@@ -138,16 +140,21 @@ class AWSSync:
             .values("slug", "semester", "mailinglist")
         ):
             project_slug = project["slug"]
-            project_semester = str(Semester.objects.get(pk=project["semester"]))
-            project_email = MailingList.objects.get(pk=project["mailinglist"]).email_address
+            project_semester = str(Semester.objects.get(pk=project["semester"])
+                                   )
+            project_email = MailingList.objects.get(pk=project["mailinglist"])\
+                .email_address
 
             sync_data = SyncData(project_email, project_slug, project_semester)
             email_ids.append(sync_data)
         return email_ids
 
     def create_aws_organization(self):
-        """Create an AWS organization with the current user
-        as the management account."""
+        """
+        Create an AWS organization with the current user.
+
+        as the management account.
+        """
         client = boto3.client("organizations")
         try:
             response = client.create_organization(FeatureSet="ALL")
@@ -201,10 +208,12 @@ class AWSSync:
                 self.logger.debug(f"{error}")
                 self.logger.debug(f"{error.response}")
 
-    def generate_aws_sync_list(self, giphouse_data: list[SyncData], aws_data: list[SyncData]):
+    def generate_aws_sync_list(self, giphouse_data: list[SyncData],
+                               aws_data: list[SyncData]):
         """
-        Generate the list of users that are registered on the GiPhouse website,
-          but are not yet invited for AWS.
+        Generate the list of users that are registered on the GiPhouse website.
+
+        but are not yet invited for AWS.
 
         This includes their ID and email address, to be able to put users in
             the correct AWS orginization later.
@@ -212,7 +221,8 @@ class AWSSync:
         sync_list = [x for x in giphouse_data if x not in aws_data]
         return sync_list
 
-    def create_scp_policy(self, policy_name, policy_description, policy_content):
+    def create_scp_policy(self, policy_name, policy_description,
+                          policy_content):
         """
         Create a SCP policy.
 
@@ -260,7 +270,8 @@ class AWSSync:
 
     # TODO: check if this function is really needed
 
-    def check_for_double_member_email(self, aws_list: list[SyncData], sync_list: list[SyncData]):
+    def check_for_double_member_email(self, aws_list: list[SyncData],
+                                      sync_list: list[SyncData]):
         """Check if no users are assigned to multiple projects."""
         sync_emails = [x.project_email for x in sync_list]
         aws_emails = [x.project_email for x in aws_list]
@@ -279,7 +290,8 @@ class AWSSync:
 
     def check_current_ou_exists(self, AWSdata: AWSTree):
         """
-        Check if the the OU (organizational unit) for the current semester
+        Check if the the OU (organizational unit) for the current semester.
+
         already exists in AWS.
 
         Get data in tree structure (dictionary) defined in the function that
@@ -295,8 +307,11 @@ class AWSSync:
 
     # TODO: Do we want to check for this?
     def check_members_in_correct_iteration(self, AWSdata: AWSTree):
-        """Check if the data from the member tag matches
-        the semester OU it is in."""
+        """
+        Check if the data from the member tag matches.
+
+        the semester OU it is in.
+        """
         incorrect_emails = []
         for iteration in AWSdata.iterations:
             for member in iteration.members:
@@ -323,13 +338,14 @@ class AWSSync:
 
     def extract_aws_setup(self, parent_ou_id):
         """
-        Gives a list of all the children of the parent OU.
+        Give a list of all the children of the parent OU.
 
         :param parent_ou_id: The ID of the root ID.
         """
         client = boto3.client("organizations")
         try:
-            response = client.list_organizational_units_for_parent(ParentId=parent_ou_id)
+            response = client.list_organizational_units_for_parent(
+                ParentId=parent_ou_id)
             aws_tree = AWSTree("root", parent_ou_id, [])
             for iteration in response["OrganizationalUnits"]:
                 ou_id = iteration["Id"]
@@ -340,13 +356,17 @@ class AWSSync:
                 for child in children:
                     account_id = child["Id"]
                     account_email = child["Email"]
-                    response = client.list_tags_for_resource(ResourceId=account_id)
+                    response = client.list_tags_for_resource(
+                        ResourceId=account_id)
                     tags = response["Tags"]
                     merged_tags = {d["Key"]: d["Value"] for d in tags}
                     self.logger.debug(merged_tags)
-                    if all(key in merged_tags for key in ["project_slug", "project_semester"]):
+                    if all(key in merged_tags for key in ["project_slug",
+                                                          "project_semester"]):
                         syncData.append(
-                            SyncData(account_email, merged_tags["project_slug"], merged_tags["project_semester"])
+                            SyncData(account_email,
+                                     merged_tags["project_slug"],
+                                     merged_tags["project_semester"])
                         )
                     else:
                         self.logger.error(
