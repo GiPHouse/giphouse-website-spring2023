@@ -145,25 +145,15 @@ class AWSSync:
         return email_ids
 
     def create_aws_organization(self):
-        """
-        Create an AWS organization with the current user.
-
-        as the management account.
-        """
+        """Create an AWS organization with the current user as the management account."""
         client = boto3.client("organizations")
         try:
             response = client.create_organization(FeatureSet="ALL")
             self.org_info = response["Organization"]
-            self.logger.info(
-                "Created an AWS organization and saved \
-                              organization info."
-            )
+            self.logger.info("Created an AWS organization and saved organization info.")
         except ClientError as error:
             self.fail = True
-            self.logger.error(
-                "Something went wrong creating an \
-                               AWS organization."
-            )
+            self.logger.error("Something went wrong creating an AWS organization.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
 
@@ -177,10 +167,7 @@ class AWSSync:
         """
         client = boto3.client("organizations")
         if self.org_info is None:
-            self.logger.info(
-                "No organization info found. Creating an AWS \
-                              organization."
-            )
+            self.logger.info("No organization info found. Creating an AWS organization.")
             self.fail = True
         else:
             try:
@@ -188,26 +175,18 @@ class AWSSync:
                     ParentId=self.org_info["Id"],
                     Name=f"Course Iteration {iteration_id}",
                 )
-                self.logger.info(
-                    f"Created an OU for course iteration \
-                                 {iteration_id}."
-                )
+                self.logger.info(f"Created an OU for course iteration {iteration_id}.")
                 self.iterationOU_info = response["OrganizationalUnit"]
                 return response["OrganizationalUnit"]["Id"]
             except ClientError as error:
                 self.fail = True
-                self.logger.error(
-                    f"Something went wrong creating an OU for\
-                                   course iteration {iteration_id}."
-                )
+                self.logger.error(f"Something went wrong creating an OU for course iteration {iteration_id}.")
                 self.logger.debug(f"{error}")
                 self.logger.debug(f"{error.response}")
 
     def generate_aws_sync_list(self, giphouse_data: list[SyncData], aws_data: list[SyncData]):
         """
-        Generate the list of users that are registered on the GiPhouse website.
-
-        but are not yet invited for AWS.
+        Generate the list of users that are registered on the GiPhouse website, but are not yet invited for AWS.
 
         This includes their ID and email address, to be able to put users in
             the correct AWS orginization later.
@@ -222,8 +201,7 @@ class AWSSync:
         :param policy_name: The policy name.
         :param policy_description: The policy description.
         :param policy_content: The policy configuration as a dictionary.
-        The policy is automatically converted to JSON format, including
-            escaped quotation marks.
+        The policy is automatically converted to JSON format, including escaped quotation marks.
         :return: Details of newly created policy as a dict on success
             and NoneType object otherwise.
         """
@@ -254,10 +232,7 @@ class AWSSync:
             client.attach_policy(PolicyId=policy_id, TargetId=target_id)
         except ClientError as error:
             self.fail = True
-            self.logger.error(
-                "Something went wrong \
-                              attaching an SCP policy to a target."
-            )
+            self.logger.error("Something went wrong attaching an SCP policy to a target.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
 
@@ -271,8 +246,7 @@ class AWSSync:
         duplicates = [email for email in sync_emails if email in aws_emails]
 
         for duplicate in duplicates:
-            error = f"Email address {duplicate} is already in the list of \
-                  members in AWS"
+            error = f"Email address {duplicate} is already in the list of members in AWS"
             self.logger.info("An email clash occured while syncing.")
             self.logger.debug(error)
 
@@ -282,12 +256,9 @@ class AWSSync:
 
     def check_current_ou_exists(self, AWSdata: AWSTree):
         """
-        Check if the the OU (organizational unit) for the current semester.
+        Check if the the OU (organizational unit) for the current semester already exists in AWS.
 
-        already exists in AWS.
-
-        Get data in tree structure (dictionary) defined in the function that
-        retrieves the AWS data
+        Get data in tree structure (dictionary) defined in the function that retrieves the AWS data
         """
         current = Semester.objects.get_or_create_current_semester()
 
@@ -299,11 +270,7 @@ class AWSSync:
 
     # TODO: Do we want to check for this?
     def check_members_in_correct_iteration(self, AWSdata: AWSTree):
-        """
-        Check if the data from the member tag matches.
-
-        the semester OU it is in.
-        """
+        """Check if the data from the member tag matches the semester OU it is in."""
         incorrect_emails = []
         for iteration in AWSdata.iterations:
             for member in iteration.members:
@@ -357,11 +324,7 @@ class AWSSync:
                         )
                     else:
                         self.logger.error(
-                            "Could not find project_slug or \
-                                          project_semester \
-                                          tag for account \
-                                           with ID: "
-                            + account_id
+                            "Could not find project_slug or project_semester tag for account with ID: " + account_id
                         )
                         self.fail = True
 
