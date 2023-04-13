@@ -420,18 +420,16 @@ class AWSTreeChecksTest(TestCase):
 
     def test_check_current_ou_exists(self):
         # Test when current semester OU does not exist
-        current_semester = "Fall 2022"
-        val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1, current_semester)
-        self.assertEquals((val1, val2), (False, None))
+        with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Fall 2022"):
+            self.assertTrue(Semester.objects.get_or_create_current_semester() == "Fall 2022")
+            val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1)
+            self.assertEqual((val1, val2), (False, None))
 
         # Test when current semester OU exists
-        current_semester = "Spring 2021"
-        val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1, current_semester)
-        self.assertEqual((val1, val2), (True, "98765"))
-
-        # Test for code coverage, can't do it otherwise
-        val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1)
-        self.assertTrue(True)
+        with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Spring 2021"):
+            self.assertTrue(Semester.objects.get_or_create_current_semester() == "Spring 2021")
+            val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1)
+            self.assertEqual((val1, val2), (True, "98765"))
 
     def test_check_members_in_correct_iteration(self):
         # Test when correct
@@ -440,7 +438,7 @@ class AWSTreeChecksTest(TestCase):
 
         # Test when incorrect
         val1, val2 = self.sync.check_members_in_correct_iteration(self.aws_tree2)
-        self.assertEqual((val1, val2), (False, "email3@example.com"))
+        self.assertEqual((val1, val2), (False, ["email3@example.com"]))
 
     def test_check_double_iteration_names(self):
         # Test when correct
@@ -449,7 +447,7 @@ class AWSTreeChecksTest(TestCase):
 
         # Test when double
         val1, val2 = self.sync.check_double_iteration_names(self.aws_tree3)
-        self.assertEqual((val1, val2), (True, "Fall 2020"))
+        self.assertEqual((val1, val2), (True, ["Fall 2020"]))
 
     def test_AWSTree_equals(self):
         self.assertEqual(self.aws_tree1, self.aws_tree1)
