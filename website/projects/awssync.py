@@ -37,45 +37,6 @@ class SyncData:
         return f"{self.project_email}, {self.project_slug},\
               {self.project_semester}"
 
-
-class Iteration:
-    """
-    Datatype for AWS data in the Course iteration OU
-    """
-    def __init__(self, name, id, members: list[SyncData]):
-        self.name = name
-        self.id = id
-        self.members = members
-
-    def __repr__(self):
-        return f"Iteration({self.name}, {self.id}, {self.members})"
-
-
-class AWSTree:
-    """
-    Tree structure for AWS data
-    """
-    def __init__(self, name, id, iterations: list[Iteration]):
-        self.name = name
-        self.id = id
-        self.iterations = iterations
-
-    def __repr__(self):
-        return f"AWSTree({self.name}, {self.id}, {self.iterations})"
-
-    def awstree_to_syncdata_list(self):
-        """
-        Converges AWSTree to list of SyncData elements.
-        """
-        awslist = []
-
-        for interation in self.iterations:
-            for member in interation.members:
-                awslist.append(member)
-
-        return awslist
-
-
 class AWSSync:
     """Synchronise with Amazon Web Services."""
 
