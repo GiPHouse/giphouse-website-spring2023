@@ -188,7 +188,7 @@ class AWSSync:
         """
         Generate the list of users that are registered on the GiPhouse website, but are not yet invited for AWS.
 
-        This includes their ID and email address, to be able to put users invthe correct AWS organization later.
+        This includes their ID and email address, to be able to put users in the correct AWS organization later.
         """
         sync_list = [x for x in giphouse_data if x not in aws_data]
         return sync_list
