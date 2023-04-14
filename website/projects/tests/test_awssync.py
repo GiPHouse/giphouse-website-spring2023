@@ -215,7 +215,7 @@ class AWSSyncTest(TestCase):
         self.assertEquals(aws_tree, aws_tree_test)
 
     @mock_organizations
-    def test_get_aws_data_no_client(self):
+    def test_get_aws_data_no_root(self):
         boto3.client("organizations")
         self.sync.create_aws_organization()
         self.sync.extract_aws_setup("NonExistentRootID")

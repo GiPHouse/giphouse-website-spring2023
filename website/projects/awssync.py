@@ -188,8 +188,7 @@ class AWSSync:
         """
         Generate the list of users that are registered on the GiPhouse website, but are not yet invited for AWS.
 
-        This includes their ID and email address, to be able to put users in
-            the correct AWS orginization later.
+        This includes their ID and email address, to be able to put users invthe correct AWS organization later.
         """
         sync_list = [x for x in giphouse_data if x not in aws_data]
         return sync_list
@@ -202,8 +201,7 @@ class AWSSync:
         :param policy_description: The policy description.
         :param policy_content: The policy configuration as a dictionary.
         The policy is automatically converted to JSON format, including escaped quotation marks.
-        :return: Details of newly created policy as a dict on success
-            and NoneType object otherwise.
+        :return: Details of newly created policy as a dict on success and NoneType object otherwise.
         """
         client = boto3.client("organizations")
         try:
@@ -299,7 +297,7 @@ class AWSSync:
         """
         Give a list of all the children of the parent OU.
 
-        :param parent_ou_id: The ID of the root ID.
+        :param parent_ou_id: The ID of the parent OU.
         """
         client = boto3.client("organizations")
         try:
