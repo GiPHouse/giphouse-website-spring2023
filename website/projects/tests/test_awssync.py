@@ -755,6 +755,51 @@ class AWSSyncTest(TestCase):
 
         self.assertFalse(success)
 
+    @mock_organizations
+    def test_get_aws_data(self):
+        moto_client = boto3.client("organizations")
+        self.sync.create_aws_organization()
+        root_id = moto_client.list_roots()["Roots"][0]["Id"]
+
+        response_OU_1 = moto_client.create_organizational_unit(ParentId=root_id, Name="OU_1")
+        OU_1_id = response_OU_1["OrganizationalUnit"]["Id"]
+        response_account_1 = moto_client.create_account(
+            Email="account_1@gmail.com",
+            AccountName="account_1",
+            Tags=[{"Key": "project_semester", "Value": "2021"}, {"Key": "project_slug", "Value": "test1"}],
+        )
+        account_id_1 = response_account_1["CreateAccountStatus"]["AccountId"]
+        moto_client.move_account(AccountId=account_id_1, SourceParentId=root_id, DestinationParentId=OU_1_id)
+
+        aws_tree = self.sync.extract_aws_setup(root_id)
+        iteration_test = awssync.Iteration("OU_1", OU_1_id, [awssync.SyncData("account_1@gmail.com", "test1", "2021")])
+        aws_tree_test = awssync.AWSTree("root", root_id, [iteration_test])
+        self.assertEquals(aws_tree, aws_tree_test)
+
+    @mock_organizations
+    def test_get_aws_data_no_root(self):
+        boto3.client("organizations")
+        self.sync.create_aws_organization()
+        self.sync.extract_aws_setup("NonExistentRootID")
+        self.assertTrue(self.sync.fail)
+
+    @mock_organizations
+    def test_get_aws_data_no_slugs(self):
+        moto_client = boto3.client("organizations")
+        self.sync.create_aws_organization()
+        root_id = moto_client.list_roots()["Roots"][0]["Id"]
+
+        response_OU_1 = moto_client.create_organizational_unit(ParentId=root_id, Name="OU_1")
+        OU_1_id = response_OU_1["OrganizationalUnit"]["Id"]
+        response_account_1 = moto_client.create_account(
+            Email="account_1@gmail.com",
+            AccountName="account_1",
+            Tags=[],
+        )
+        account_id_1 = response_account_1["CreateAccountStatus"]["AccountId"]
+        moto_client.move_account(AccountId=account_id_1, SourceParentId=root_id, DestinationParentId=OU_1_id)
+        self.sync.extract_aws_setup(root_id)
+        self.assertTrue(self.sync.fail)
 
 class AWSSyncListTest(TestCase):
     """Test AWSSyncList class."""
@@ -862,3 +907,165 @@ class AWSAPITalkerTest(TestCase):
                 "create_policy",
             )
         return botocore.client.BaseClient._make_api_call(self, operation_name, kwarg)
+
+
+class AWSTreeChecksTest(TestCase):
+    """Test checks done on AWSTree data struncture."""
+
+    def setUp(self):
+        self.sync = awssync.AWSSync()
+        self.awstree = awssync.AWSTree("Name", "1234", [])
+        self.iteration = awssync.Iteration("Name", "1234", [])
+        self.sync_data = awssync.SyncData("email@example.com", "Project X", "Spring 2020")
+
+        self.sync_list = [
+            awssync.SyncData("email1@example.com", "Spring 2022", "Project A"),
+            awssync.SyncData("email2@example.com", "Fall 2022", "Project B"),
+            awssync.SyncData("email3@example.com", "Spring 2022", "Project C"),
+        ]
+        self.aws_list = [
+            awssync.SyncData("email4@example.com", "Fall 2021", "Project D"),
+            awssync.SyncData("email5@example.com", "Spring 2022", "Project E"),
+            awssync.SyncData("email6@example.com", "Fall 2022", "Project F"),
+        ]
+
+        self.treelist = [
+            awssync.SyncData("email1@example.com", "project1", "Fall 2020"),
+            awssync.SyncData("email2@example.com", "project2", "Fall 2020"),
+            awssync.SyncData("email3@example.com", "project3", "Spring 2021"),
+            awssync.SyncData("email4@example.com", "project4", "Spring 2021"),
+        ]
+
+        self.aws_tree1 = awssync.AWSTree(
+            "AWS Tree",
+            "12345",
+            [
+                awssync.Iteration(
+                    "Fall 2020",
+                    "54321",
+                    [
+                        awssync.SyncData("email1@example.com", "project1", "Fall 2020"),
+                        awssync.SyncData("email2@example.com", "project2", "Fall 2020"),
+                    ],
+                ),
+                awssync.Iteration(
+                    "Spring 2021",
+                    "98765",
+                    [
+                        awssync.SyncData("email3@example.com", "project3", "Spring 2021"),
+                        awssync.SyncData("email4@example.com", "project4", "Spring 2021"),
+                    ],
+                ),
+            ],
+        )
+
+        self.aws_tree2 = awssync.AWSTree(
+            "AWS Tree",
+            "12345",
+            [
+                awssync.Iteration(
+                    "Fall 2020",
+                    "54321",
+                    [
+                        awssync.SyncData("email1@example.com", "project1", "Fall 2020"),
+                        awssync.SyncData("email2@example.com", "project2", "Fall 2020"),
+                    ],
+                ),
+                awssync.Iteration(
+                    "Spring 2021",
+                    "98765",
+                    [
+                        awssync.SyncData("email3@example.com", "project3", "Fall 2021"),
+                        awssync.SyncData("email4@example.com", "project4", "Spring 2021"),
+                    ],
+                ),
+            ],
+        )
+
+        self.aws_tree3 = awssync.AWSTree(
+            "AWS Tree",
+            "12345",
+            [
+                awssync.Iteration(
+                    "Fall 2020",
+                    "54321",
+                    [
+                        awssync.SyncData("email1@example.com", "project1", "Fall 2020"),
+                        awssync.SyncData("email2@example.com", "project2", "Fall 2020"),
+                    ],
+                ),
+                awssync.Iteration(
+                    "Fall 2020",
+                    "98765",
+                    [
+                        awssync.SyncData("email3@example.com", "project3", "Fall 2021"),
+                        awssync.SyncData("email4@example.com", "project4", "Spring 2021"),
+                    ],
+                ),
+            ],
+        )
+
+    def test_repr_AWSTree(self):
+        self.assertEquals(str(self.awstree), "AWSTree('Name', '1234', [])")
+
+    def test_repr_Iteration(self):
+        self.assertEquals(str(self.iteration), "Iteration('Name', '1234', [])")
+
+    def test_repr_SyncData(self):
+        self.assertEquals(str(self.sync_data), "SyncData('email@example.com', 'Project X', 'Spring 2020')")
+
+    def test_awstree_to_syncdata_list(self):
+        self.assertEqual(self.aws_tree1.awstree_to_syncdata_list(), self.treelist)
+
+    def test_check_for_double_member_email(self):
+        # Test when there are no duplicate emails
+        self.assertFalse(self.sync.check_for_double_member_email(self.aws_list, self.sync_list))
+
+        # Test when there is a duplicate email
+        self.sync_list.append(awssync.SyncData("email4@example.com", "Spring 2022", "Project G"))
+        self.assertTrue(self.sync.check_for_double_member_email(self.aws_list, self.sync_list))
+
+    def test_check_current_ou_exists(self):
+        # Test when current semester OU does not exist
+        with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Fall 2022"):
+            self.assertTrue(Semester.objects.get_or_create_current_semester() == "Fall 2022")
+            val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1)
+            self.assertEqual((val1, val2), (False, None))
+
+        # Test when current semester OU exists
+        with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Spring 2021"):
+            self.assertTrue(Semester.objects.get_or_create_current_semester() == "Spring 2021")
+            val1, val2 = self.sync.check_current_ou_exists(self.aws_tree1)
+            self.assertEqual((val1, val2), (True, "98765"))
+
+    def test_check_members_in_correct_iteration(self):
+        # Test when correct
+        val1, val2 = self.sync.check_members_in_correct_iteration(self.aws_tree1)
+        self.assertEqual((val1, val2), (True, None))
+
+        # Test when incorrect
+        val1, val2 = self.sync.check_members_in_correct_iteration(self.aws_tree2)
+        self.assertEqual((val1, val2), (False, ["email3@example.com"]))
+
+    def test_check_double_iteration_names(self):
+        # Test when correct
+        val1, val2 = self.sync.check_double_iteration_names(self.aws_tree1)
+        self.assertEqual((val1, val2), (False, None))
+
+        # Test when double
+        val1, val2 = self.sync.check_double_iteration_names(self.aws_tree3)
+        self.assertEqual((val1, val2), (True, ["Fall 2020"]))
+
+    def test_AWSTree_equals(self):
+        self.assertEqual(self.aws_tree1, self.aws_tree1)
+        self.assertNotEqual(self.aws_tree1, self.aws_tree2)
+        with self.assertRaises(TypeError):
+            awssync.AWSTree("", "", []) == []
+            self.assertRaises(TypeError)
+
+    def test_Iteration_equals(self):
+        self.assertEqual(self.aws_tree1.iterations[0], self.aws_tree1.iterations[0])
+        self.assertNotEqual(self.aws_tree1.iterations[0], self.aws_tree1.iterations[1])
+        with self.assertRaises(TypeError):
+            awssync.Iteration("", "", []) == []
+            self.assertRaises(TypeError)
