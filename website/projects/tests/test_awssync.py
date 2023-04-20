@@ -76,7 +76,7 @@ class AWSSyncTest(TestCase):
         moto_client = boto3.client("organizations")
         org = self.sync
         org.create_aws_organization()
-        org.create_course_iteration_OU(1)
+        org.create_course_iteration_OU("1")
         describe_unit = moto_client.describe_organizational_unit(OrganizationalUnitId=org.iterationOU_info["Id"])[
             "OrganizationalUnit"
         ]
@@ -84,14 +84,14 @@ class AWSSyncTest(TestCase):
 
     def test_create_course_iteration_OU_without_organization(self):
         org = self.sync
-        org.create_course_iteration_OU(1)
+        org.create_course_iteration_OU("1")
         self.assertTrue(org.fail)
 
     def test_create_course_iteration_OU__exception(self):
         org = self.sync
         org.create_aws_organization()
         with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
-            org.create_course_iteration_OU(1)
+            org.create_course_iteration_OU("1")
         self.assertTrue(org.fail)
 
     def test_get_all_mailing_lists(self):
@@ -134,67 +134,6 @@ class AWSSyncTest(TestCase):
         email_id = self.sync.get_emails_with_teamids()
         self.assertIsInstance(email_id, list)
         self.assertEqual(email_id, [])
-
-    def test_create_scp_policy(self):
-        self.sync.create_aws_organization()
-
-        policy_name = "DenyAll"
-        policy_description = "Deny all access."
-        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
-        policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
-
-        self.assertFalse(self.sync.fail)
-        self.assertEqual(policy["PolicySummary"]["Name"], policy_name)
-        self.assertEqual(policy["PolicySummary"]["Description"], policy_description)
-        self.assertEqual(policy["Content"], json.dumps(policy_content))
-
-    def test_create_scp_policy__exception(self):
-        self.sync.create_aws_organization()
-
-        policy_name = "DenyAll"
-        policy_description = "Deny all access."
-        policy_content = {
-            "Version": "2012-10-17",
-            "Statement": [{"Effect": "NonExistentEffect", "Action": "*", "Resource": "*"}],
-        }
-        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
-            policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
-
-        self.assertTrue(self.sync.fail)
-        self.assertIsNone(policy)
-
-    def test_attach_scp_policy(self):
-        moto_client = boto3.client("organizations")
-        self.sync.create_aws_organization()
-
-        policy_name = "DenyAll"
-        policy_description = "Deny all access."
-        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
-        policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
-
-        policy_id = policy["PolicySummary"]["Id"]
-        root_id = moto_client.list_roots()["Roots"][0]["Id"]
-        self.sync.attach_scp_policy(policy_id, root_id)
-
-        current_scp_policies = moto_client.list_policies_for_target(TargetId=root_id, Filter="SERVICE_CONTROL_POLICY")
-        current_scp_policy_ids = [scp_policy["Id"] for scp_policy in current_scp_policies["Policies"]]
-
-        self.assertIn(policy_id, current_scp_policy_ids)
-        self.assertFalse(self.sync.fail)
-
-    def test_attach_scp_policy__exception(self):
-        self.sync.create_aws_organization()
-
-        policy_name = "DenyAll"
-        policy_description = "Deny all access."
-        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
-        policy = self.sync.create_scp_policy(policy_name, policy_description, policy_content)
-
-        policy_id = policy["PolicySummary"]["Id"]
-        root_id = self.sync.org_info["Id"]  # Retrieves organization ID, not root ID, resulting in ClientError.
-        self.sync.attach_scp_policy(policy_id, root_id)
-
-        self.assertTrue(self.sync.fail)
 
     def test_create_scp_policy(self):
         self.sync.create_aws_organization()
@@ -551,21 +490,21 @@ class AWSSyncTest(TestCase):
     def test_pipeline_policy(self):
         moto_client = boto3.client("organizations")
         org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
-        OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
+        ou_id = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]["Id"]
 
-        success = self.sync.pipeline_policy(OU)
+        success = self.sync.pipeline_policy(ou_id)
 
         self.assertTrue(success)
 
     def test_pipeline_policy__create_failure(self):
         moto_client = boto3.client("organizations")
         org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
-        OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
+        ou_id = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]["Id"]
 
         self.sync.pipeline_create_scp_policy = MagicMock(return_value=None)
         self.sync.attach_scp_policy = MagicMock()
 
-        success = self.sync.pipeline_policy(OU)
+        success = self.sync.pipeline_policy(ou_id)
 
         self.sync.pipeline_create_scp_policy.assert_called_once()
         self.sync.attach_scp_policy.assert_not_called()
@@ -574,11 +513,11 @@ class AWSSyncTest(TestCase):
     def test_pipeline_policy__attach_failure(self):
         moto_client = boto3.client("organizations")
         org_id = moto_client.create_organization(FeatureSet="ALL")["Organization"]["Id"]
-        OU = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]
+        ou_id = moto_client.create_organizational_unit(ParentId=org_id, Name="Test")["OrganizationalUnit"]["Id"]
 
         self.sync.attach_scp_policy = MagicMock(side_effect=self.simulateFailure())
 
-        success = self.sync.pipeline_policy(OU)
+        success = self.sync.pipeline_policy(ou_id)
 
         self.sync.attach_scp_policy.assert_called_once()
         self.assertFalse(success)
@@ -617,9 +556,144 @@ class AWSSyncTest(TestCase):
 
         self.assertTrue(success)
 
+    def test_pipeline__exception_list_roots(self):
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+
+        with patch("boto3.client") as mocker:
+            mocker().list_roots.side_effect = ClientError({}, "list_roots")
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
+    def test_pipeline__edge_case_double_emails(self):
+        moto_client = boto3.client("organizations")
+        moto_client.create_organization(FeatureSet="ALL")["Organization"]
+
+        aws_tree = awssync.AWSTree(
+            "Root",
+            "123",
+            [
+                awssync.Iteration(
+                    "Spring 2023",
+                    "456",
+                    [
+                        awssync.SyncData("email1@example.com", "project1", "Spring 2023"),
+                    ],
+                )
+            ],
+        )
+
+        gip_teams = [
+            awssync.SyncData("email1@example.com", "project1", "Spring 2023"),
+            awssync.SyncData("email1@example.com", "project2", "Spring 2023"),
+        ]
+
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+        self.sync.extract_aws_setup = MagicMock(return_value=aws_tree)
+        self.sync.get_emails_with_teamids = MagicMock(return_value=gip_teams)
+        with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Spring 2023"):
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
+    def test_pipeline__edge_case_incorrectly_placed(self):
+        moto_client = boto3.client("organizations")
+        moto_client.create_organization(FeatureSet="ALL")["Organization"]
+
+        aws_tree = awssync.AWSTree(
+            "Root",
+            "123",
+            [
+                awssync.Iteration(
+                    "Fall 2023",
+                    "456",
+                    [
+                        awssync.SyncData("email1@example.com", "project1", "Spring 2023"),
+                    ],
+                )
+            ],
+        )
+
+        gip_teams = [awssync.SyncData("email1@example.com", "project1", "Spring 2023")]
+
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+        self.sync.extract_aws_setup = MagicMock(return_value=aws_tree)
+        self.sync.get_emails_with_teamids = MagicMock(return_value=gip_teams)
+        with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Spring 2023"):
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
+    def test_pipeline__edge_case_double_iteration_names(self):
+        moto_client = boto3.client("organizations")
+        moto_client.create_organization(FeatureSet="ALL")["Organization"]
+
+        aws_tree = awssync.AWSTree(
+            "Root",
+            "123",
+            [
+                awssync.Iteration(
+                    "Spring 2023", "456", [awssync.SyncData("email1@example.com", "project1", "Spring 2023")]
+                ),
+                awssync.Iteration("Spring 2023", "789", []),
+            ],
+        )
+
+        gip_teams = [awssync.SyncData("email1@example.com", "project1", "Spring 2023")]
+
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+        self.sync.extract_aws_setup = MagicMock(return_value=aws_tree)
+        self.sync.get_emails_with_teamids = MagicMock(return_value=gip_teams)
+        with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Spring 2023"):
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
+    def test_pipeline__failed_creating_iteration_ou(self):
+        moto_client = boto3.client("organizations")
+        moto_client.create_organization(FeatureSet="ALL")["Organization"]
+
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+        with patch("boto3.client") as mocker:
+            mocker().create_organizational_unit.side_effect = ClientError({}, "create_organizational_unit")
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
+    def test_pipeline__failed_policy(self):
+        self.sync.create_aws_organization()
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+
+        with patch("boto3.client") as mocker:
+            mocker().create_policy.side_effect = ClientError({}, "create_policy")
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
+    def test_pipeline__failed_create_and_move_account(self):
+        self.sync.create_aws_organization()
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+
+        with patch("boto3.client") as mocker:
+            mocker().move_account.side_effect = ClientError({}, "move_account")
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
+    def test_pipeline__exception_extract_aws_setup(self):
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+
+        with patch("boto3.client") as mocker:
+            mocker().list_organizational_units_for_parent.side_effect = ClientError(
+                {}, "list_organizational_units_for_parent"
+            )
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
     def test_pipeline_update_current_course_iteration_ou___failure_check_current_ou(self):
 
-        self.sync.check_current_ou = MagicMock(return_value=(False, None))
+        self.sync.check_current_ou_exists = MagicMock(return_value=(False, None))
 
         self.sync.create_aws_organization()
         success, id = self.sync.pipeline_update_current_course_iteration_ou(None)
@@ -628,7 +702,7 @@ class AWSSyncTest(TestCase):
 
     def test_pipeline_update_current_course_iteration_ou___success(self):
 
-        self.sync.check_current_ou = MagicMock(return_value=(True, "1234"))
+        self.sync.check_current_ou_exists = MagicMock(return_value=(True, "1234"))
 
         self.sync.create_aws_organization()
         success, id = self.sync.pipeline_update_current_course_iteration_ou(None)
@@ -637,7 +711,7 @@ class AWSSyncTest(TestCase):
 
     def test_pipeline_update_current_course_iteration_ou___failure_create_ou(self):
 
-        self.sync.check_current_ou = MagicMock(return_value=(False, None))
+        self.sync.check_current_ou_exists = MagicMock(return_value=(False, None))
         self.sync.create_course_iteration_OU = MagicMock(side_effect=self.simulateFailure())
 
         self.sync.create_aws_organization()
@@ -650,9 +724,9 @@ class AWSSyncTest(TestCase):
     def test_pipeline_create_account(self):
         self.sync.create_aws_organization()
 
-        email = "alice@example.com"
-        username = "alice"
-        success, response = self.sync.pipeline_create_account(email, username)
+        success, response = self.sync.pipeline_create_account(
+            awssync.SyncData("alice@example.com", "alice", "Spring 2023")
+        )
 
         self.assertTrue(success)
         self.assertIsNotNone(response)
@@ -660,12 +734,11 @@ class AWSSyncTest(TestCase):
     def test_pipeline_create_account__exception_create_account(self):
         self.sync.create_aws_organization()
 
-        email = "alice@example.com"
-        username = "alice"
-
         with patch("boto3.client") as mocker:
             mocker().create_account.side_effect = ClientError({}, "create_account")
-            success, response = self.sync.pipeline_create_account(email, username)
+            success, response = self.sync.pipeline_create_account(
+                awssync.SyncData("alice@example.com", "alice", "Spring 2023")
+            )
 
         self.assertFalse(success)
         self.assertEquals(response, "CLIENTERROR_CREATE_ACCOUNT")
@@ -673,12 +746,11 @@ class AWSSyncTest(TestCase):
     def test_pipeline_create_account__exception_describe_account_status(self):
         self.sync.create_aws_organization()
 
-        email = "alice@example.com"
-        username = "alice"
-
         with patch("boto3.client") as mocker:
             mocker().describe_create_account_status.side_effect = ClientError({}, "describe_create_account_status")
-            success, response = self.sync.pipeline_create_account(email, username)
+            success, response = self.sync.pipeline_create_account(
+                awssync.SyncData("alice@example.com", "alice", "Spring 2023")
+            )
 
         self.assertFalse(success)
         self.assertEquals(response, "CLIENTERROR_DESCRIBE_CREATE_ACCOUNT_STATUS")
@@ -686,22 +758,18 @@ class AWSSyncTest(TestCase):
     def test_pipeline_create_account__state_failed(self):
         self.sync.create_aws_organization()
 
-        email = "alice@example.com"
-        username = "alice"
-
         with patch("boto3.client") as mocker:
             response = {"CreateAccountStatus": {"State": "FAILED", "FailureReason": "EMAIL_ALREADY_EXISTS"}}
             mocker().describe_create_account_status.return_value = response
-            success, response = self.sync.pipeline_create_account(email, username)
+            success, response = self.sync.pipeline_create_account(
+                awssync.SyncData("alice@example.com", "alice", "Spring 2023")
+            )
 
         self.assertFalse(success)
         self.assertEquals(response, "EMAIL_ALREADY_EXISTS")
 
     def test_pipeline_create_account__state_in_progress(self):
         self.sync.create_aws_organization()
-
-        email = "alice@example.com"
-        username = "alice"
 
         with patch("boto3.client") as mocker:
             response = {
@@ -710,7 +778,9 @@ class AWSSyncTest(TestCase):
                 }
             }
             mocker().describe_create_account_status.return_value = response
-            success, response = self.sync.pipeline_create_account(email, username)
+            success, response = self.sync.pipeline_create_account(
+                awssync.SyncData("alice@example.com", "alice", "Spring 2023")
+            )
 
         self.assertFalse(success)
         self.assertEquals(response, "STILL_IN_PROGRESS")
@@ -719,9 +789,12 @@ class AWSSyncTest(TestCase):
         moto_client = boto3.client("organizations")
         self.sync.create_aws_organization()
 
-        new_member_accounts = [("alice@example.com", "alice"), ("bob@example.com", "bob")]
+        new_member_accounts = [
+            awssync.SyncData("alice@example.com", "alice", "Spring 2023"),
+            awssync.SyncData("bob@example.com", "bob", "Spring 2023"),
+        ]
         root_id = moto_client.list_roots()["Roots"][0]["Id"]
-        course_iteration_id = self.sync.create_course_iteration_OU("2023Fall")
+        course_iteration_id = self.sync.create_course_iteration_OU("Spring 2023")
 
         success = self.sync.pipeline_create_and_move_accounts(new_member_accounts, root_id, course_iteration_id)
         self.assertTrue(success)
@@ -800,6 +873,7 @@ class AWSSyncTest(TestCase):
         moto_client.move_account(AccountId=account_id_1, SourceParentId=root_id, DestinationParentId=OU_1_id)
         self.sync.extract_aws_setup(root_id)
         self.assertTrue(self.sync.fail)
+
 
 class AWSSyncListTest(TestCase):
     """Test AWSSyncList class."""

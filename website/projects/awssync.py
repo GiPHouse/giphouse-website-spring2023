@@ -170,9 +170,7 @@ class AWSSync:
         :return: True if function executes successfully
         """
         self.logger.info("Pressed button")
-        self.logger.info(self.get_emails_with_teamids())
-        self.logger.debug(f"Pipeline check result: {self.pipeline_preconditions()}")
-
+        self.logger.debug(f"Pipeline result: {self.pipeline()}")
         return True
 
     def get_all_mailing_lists(self):
@@ -221,11 +219,11 @@ class AWSSync:
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
 
-    def create_course_iteration_OU(self, iteration_id):
+    def create_course_iteration_OU(self, iteration_name):
         """
         Create an OU for the course iteration.
 
-        :param iteration_id: The ID of the course iteration
+        :param iteration_name: The name of the course iteration OU
 
         :return: The ID of the OU
         """
@@ -237,14 +235,14 @@ class AWSSync:
             try:
                 response = client.create_organizational_unit(
                     ParentId=self.org_info["Id"],
-                    Name=f"Course Iteration {iteration_id}",
+                    Name=iteration_name,
                 )
-                self.logger.info(f"Created an OU for course iteration {iteration_id}.")
+                self.logger.info(f"Created an OU for course iteration {iteration_name}.")
                 self.iterationOU_info = response["OrganizationalUnit"]
                 return response["OrganizationalUnit"]["Id"]
             except ClientError as error:
                 self.fail = True
-                self.logger.error(f"Something went wrong creating an OU for course iteration {iteration_id}.")
+                self.logger.error(f"Something went wrong creating an OU for course iteration {iteration_name}.")
                 self.logger.debug(f"{error}")
                 self.logger.debug(f"{error.response}")
 
@@ -428,6 +426,7 @@ class AWSSync:
             return False
 
         check_org_existence, organization_info = self.check_organization_existence()
+        self.org_info = organization_info
         if not check_org_existence:
             return False
 
@@ -443,7 +442,7 @@ class AWSSync:
 
     def pipeline_create_scp_policy(self):
         """
-        Creates an SCP policy to be attached to the organizational unit of the current semester.
+        Create an SCP policy to be attached to the organizational unit of the current semester.
 
         :return: Details of newly created policy as a dict on success and NoneType object otherwise.
         """
@@ -453,11 +452,11 @@ class AWSSync:
         policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
         return self.create_scp_policy(policy_name, policy_description, policy_content)
 
-    def pipeline_policy(self, OU):
+    def pipeline_policy(self, ou_id):
         """
-        Creates an SCP policy and attaches it to the organizational unit of the current semester.
+        Create an SCP policy and attaches it to the organizational unit of the current semester.
 
-        :param OU: organizational unit of the current semester.
+        :param OU: organizational unit ID of the current semester.
         :return: True iff policy was successfully created and attached.
         """
         self.logger.info("Creating SCP policy to be attached to organizational unit for current semester.")
@@ -468,14 +467,14 @@ class AWSSync:
         self.logger.info("Successfully created SCP policy.")
 
         self.logger.info("Attaching SCP policy to organizational unit for current semester.")
-        self.attach_scp_policy(policy["PolicySummary"]["Id"], OU["Id"])
+        self.attach_scp_policy(policy["PolicySummary"]["Id"], ou_id)
         if self.fail:
             self.logger.info("Failed to attach SCP policy.")
             return False
         self.logger.info("Successfully attached SCP policy.")
         return True
 
-    def pipeline_create_account(self, email, username):
+    def pipeline_create_account(self, sync_data):
         """
         Create a single new AWS member account in the organization of the API caller.
 
@@ -491,7 +490,15 @@ class AWSSync:
 
         # Request new member account.
         try:
-            response_create = client.create_account(Email=email, AccountName=username, IamUserAccessToBilling="DENY")
+            response_create = client.create_account(
+                Email=sync_data.project_email,
+                AccountName=sync_data.project_slug,
+                IamUserAccessToBilling="DENY",
+                Tags=[
+                    {"Key": "project_slug", "Value": sync_data.project_slug},
+                    {"Key": "project_semester", "Value": sync_data.project_semester},
+                ],
+            )
         except ClientError as error:
             self.logger.debug(error)
             return False, "CLIENTERROR_CREATE_ACCOUNT"
@@ -519,7 +526,7 @@ class AWSSync:
         """
         Create multiple accounts in the organization of the API caller and move them from the root to a destination OU.
 
-        :param new_member_accounts: List of 2-tuples with the e-mail address and username respectively, as strings.
+        :param new_member_accounts: List of SyncData objects.
         :param root_id:             The organization's root ID.
         :param destination_ou_id:   The organization's destination OU ID.
         :returns:                   True iff **all** new member accounts were created and moved successfully.
@@ -527,11 +534,12 @@ class AWSSync:
         client = boto3.client("organizations")
         overall_success = True
 
-        for email, name in new_member_accounts:
-            success, response = self.pipeline_create_account(email, name)
+        for new_member in new_member_accounts:
+            success, response = self.pipeline_create_account(new_member)
             if success:
                 account_id = response
                 try:
+                    root_id = client.list_roots()["Roots"][0]["Id"]
                     client.move_account(
                         AccountId=account_id, SourceParentId=root_id, DestinationParentId=destination_ou_id
                     )
@@ -552,14 +560,14 @@ class AWSSync:
         :param aws_tree:               The AWS tree to be checked.
         :returns:                      True, iteration_id on success and otherwise False, failure_reason.
         """
-
-        is_current_iteration, iteration_id = self.check_current_ou(aws_tree)
+        is_current_iteration, iteration_ou_id = self.check_current_ou_exists(aws_tree)
 
         if not is_current_iteration:
-            iteration_id = self.create_course_iteration_OU(iteration_id)
+            iteration_name = str(Semester.objects.get_or_create_current_semester())
+            iteration_ou_id = self.create_course_iteration_OU(iteration_name)
 
         if not self.fail:
-            return True, iteration_id
+            return True, iteration_ou_id
         else:
             return False, "ITERATION_OU_CREATION_FAILED"
 
@@ -573,35 +581,55 @@ class AWSSync:
         if not self.pipeline_preconditions():
             return False
 
-        # TODO: Get synchronization data.
-        # TODO: Check/create course iteration OU.
-        course_iteration_ou_id = None
+        # Get synchronization data.
+        client = boto3.client("organizations")
+        try:
+            root_id = client.list_roots()["Roots"][0]["Id"]
+        except ClientError as error:
+            self.logger.debug("Failed to retrieve root ID of organization.")
+            self.logger.debug(error)
+            return False
 
-        aws_tree = None
+        aws_tree = self.extract_aws_setup(root_id)
+        if self.fail:
+            self.logger.debug("Extracting AWS setup failed.")
+            return False
+
+        aws_sync_data = aws_tree.awstree_to_syncdata_list()
+        giphouse_sync_data = self.get_emails_with_teamids()
+        merged_sync_data = self.generate_aws_sync_list(giphouse_sync_data, aws_sync_data)
+
+        # Check edge cases.
+        if self.check_for_double_member_email(aws_sync_data, merged_sync_data):
+            return False
+
+        success, incorrect_emails = self.check_members_in_correct_iteration(aws_tree)
+        if not success:
+            self.logger.debug(f"Got incorrectly placed AWS member accounts: {incorrect_emails}.")
+            return False
+
+        failure, double_iteration_names = self.check_double_iteration_names(aws_tree)
+        if failure:
+            self.logger.debug(f"Found double iteration names: {double_iteration_names}.")
+            return False
+
+        # Check/create course iteration OU.
         current_course_iteration_exists, response = self.pipeline_update_current_course_iteration_ou(aws_tree)
         if not current_course_iteration_exists:
             failure_reason = response
             self.logger.debug(failure_reason)
             return False
-
         course_iteration_ou_id = response
 
-        # Attach SCP policy to course iteration OU.
+        # Create and attach SCP policy to course iteration OU.
         if not self.pipeline_policy(course_iteration_ou_id):
             return False
 
         # Create new member accounts and move to course iteration OU.
-        # Temporary dummy variables (dependent on other in-progress tasks).
-        member_accounts = [("alice@example.com", "alice"), ("bob@example.com", "bob")]
-        client = boto3.client("organizations")
-        root_id = client.list_roots()["Roots"][0]["Id"]
-
-        if not self.pipeline_create_and_move_accounts(member_accounts, root_id, course_iteration_ou_id):
+        if not self.pipeline_create_and_move_accounts(merged_sync_data, root_id, course_iteration_ou_id):
             return False
 
         return True
-
-    # TODO: check if this function is really needed
 
     def check_for_double_member_email(self, aws_list: list[SyncData], sync_list: list[SyncData]):
         """Check if no users are assigned to multiple projects."""
@@ -625,7 +653,7 @@ class AWSSync:
 
         Get data in tree structure (dictionary) defined in the function that retrieves the AWS data
         """
-        current = Semester.objects.get_or_create_current_semester()
+        current = str(Semester.objects.get_or_create_current_semester())
 
         for iteration in AWSdata.iterations:
             if current == iteration.name:
@@ -633,7 +661,6 @@ class AWSSync:
 
         return (False, None)
 
-    # TODO: Do we want to check for this?
     def check_members_in_correct_iteration(self, AWSdata: AWSTree):
         """Check if the data from the member tag matches the semester OU it is in."""
         incorrect_emails = []
