@@ -90,7 +90,8 @@ class AWSSyncTest(TestCase):
     def test_create_course_iteration_OU__exception(self):
         org = self.sync
         org.create_aws_organization()
-        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
+        with patch("boto3.client") as mocker:
+            mocker().list_roots.side_effect = ClientError({}, "list_roots")
             org.create_course_iteration_OU("1")
         self.assertTrue(org.fail)
 
@@ -671,12 +672,26 @@ class AWSSyncTest(TestCase):
 
         self.assertFalse(success)
 
-    def test_pipeline__failed_policy(self):
+    def test_pipeline__exception_attaching_policy(self):
         self.sync.create_aws_organization()
         self.sync.pipeline_preconditions = MagicMock(return_value=True)
 
         with patch("boto3.client") as mocker:
-            mocker().attach_policy.side_effect = ClientError({}, "attach_policy")
+            mocker().attach_policy.side_effect = ClientError(
+                {"Error": {"Code": "PolicyTypeNotEnabledException"}}, "attach_policy"
+            )
+            success = self.sync.pipeline()
+
+        self.assertFalse(success)
+
+    def test_pipeline__already_attached_policy(self):
+        self.sync.create_aws_organization()
+        self.sync.pipeline_preconditions = MagicMock(return_value=True)
+
+        with patch("boto3.client") as mocker:
+            mocker().attach_policy.side_effect = ClientError(
+                {"Error": {"Code": "DuplicatePolicyAttachmentException"}}, "attach_policy"
+            )
             success = self.sync.pipeline()
 
         self.assertFalse(success)

@@ -234,8 +234,9 @@ class AWSSync:
             self.fail = True
         else:
             try:
+                root_id = client.list_roots()["Roots"][0]["Id"]
                 response = client.create_organizational_unit(
-                    ParentId=self.org_info["Id"],
+                    ParentId=root_id,
                     Name=iteration_name,
                 )
                 self.logger.info(f"Created an OU for course iteration {iteration_name}.")
@@ -292,7 +293,8 @@ class AWSSync:
         try:
             client.attach_policy(PolicyId=policy_id, TargetId=target_id)
         except ClientError as error:
-            self.fail = True
+            if error.response["Error"]["Code"] != "DuplicatePolicyAttachmentException":
+                self.fail = True
             self.logger.error("Something went wrong attaching an SCP policy to a target.")
             self.logger.debug(f"{error}")
             self.logger.debug(f"{error.response}")
