@@ -103,6 +103,7 @@ class AWSSync:
         self.logger.setLevel(logging.DEBUG)
         self.org_info = None
         self.iterationOU_info = None
+        self.policy_id = "p-examplepolicyid111"
         self.fail = False
         self.required_aws_actions = [
             # "organizations:AcceptHandshake",
@@ -440,38 +441,23 @@ class AWSSync:
 
         return True
 
-    def pipeline_create_scp_policy(self):
-        """
-        Create an SCP policy to be attached to the organizational unit of the current semester.
-
-        :return: Details of newly created policy as a dict on success and NoneType object otherwise.
-        """
-        # attach dummy policy (deny all)
-        policy_name = "DenyAll"
-        policy_description = "Deny all access."
-        policy_content = {"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]}
-        return self.create_scp_policy(policy_name, policy_description, policy_content)
-
     def pipeline_policy(self, ou_id):
         """
         Create an SCP policy and attaches it to the organizational unit of the current semester.
 
-        :param OU: organizational unit ID of the current semester.
-        :return: True iff policy was successfully created and attached.
+        :param ou_id: ID of the organizational unit for the current semester.
+        :return: True iff the policy to be attached to the OU already exists and is successfully attached.
         """
-        self.logger.info("Creating SCP policy to be attached to organizational unit for current semester.")
-        policy = self.pipeline_create_scp_policy()
-        if policy is None:
-            self.logger.info("Failed to create SCP policy.")
+        client = boto3.client("organizations")
+        try:
+            client.describe_policy(PolicyId=self.policy_id)
+        except ClientError as error:
+            self.logger.debug(error)
             return False
-        self.logger.info("Successfully created SCP policy.")
 
-        self.logger.info("Attaching SCP policy to organizational unit for current semester.")
-        self.attach_scp_policy(policy["PolicySummary"]["Id"], ou_id)
+        self.attach_scp_policy(self.policy_id, ou_id)
         if self.fail:
-            self.logger.info("Failed to attach SCP policy.")
             return False
-        self.logger.info("Successfully attached SCP policy.")
         return True
 
     def pipeline_create_account(self, sync_data):
