@@ -1,10 +1,11 @@
 import json
+from unittest.mock import MagicMock
 
 import boto3
 
 from django.test import TestCase
 
-from moto import mock_organizations
+from moto import mock_iam, mock_organizations, mock_sts
 
 from projects.aws import awsapitalker
 
@@ -14,12 +15,18 @@ class AWSAPITalkerTest(TestCase):
 
     def setUp(self):
         """Set up testing environment."""
+        self.mock_iam = mock_iam()
         self.mock_org = mock_organizations()
+        self.mock_sts = mock_sts()
         self.api_talker = awsapitalker.AWSAPITalker()
+        self.mock_iam.start()
         self.mock_org.start()
+        self.mock_sts.start()
 
     def tearDown(self):
+        self.mock_iam.stop()
         self.mock_org.stop()
+        self.mock_sts.stop()
 
     def test_create_organization(self):
         response = self.api_talker.create_organization("ALL")
@@ -57,7 +64,11 @@ class AWSAPITalkerTest(TestCase):
     def test_simulate_principal_policy(self):
         arn = self.api_talker.get_caller_identity()["Arn"]
 
-        eval_results = self.api_talker.simulate_principal_policy(arn, ["iam:SimulatePrincipalPolicy"])[
+        self.api_talker.simulate_principal_policy = MagicMock(
+            return_value={"EvaluationResults": [{"EvalDecision": "allowed"}]}
+        )
+
+        eval_results = self.api_talker.simulate_principal_policy(arn, ["sts:SimulatePrincipalPolicy"])[
             "EvaluationResults"
         ]
 
