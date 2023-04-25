@@ -18,13 +18,13 @@ class AWSAPITalkerTest(TestCase):
         self.mock_iam = mock_iam()
         self.mock_org = mock_organizations()
         self.mock_sts = mock_sts()
-        #self.mock_iam.start()
+        # self.mock_iam.start()
         self.mock_org.start()
         self.mock_sts.start()
         self.api_talker = awsapitalker.AWSAPITalker()
 
     def tearDown(self):
-        #self.mock_iam.stop()
+        # self.mock_iam.stop()
         self.mock_org.stop()
         self.mock_sts.stop()
 
@@ -60,12 +60,15 @@ class AWSAPITalkerTest(TestCase):
     def test_get_caller_identity(self):
         response = self.api_talker.get_caller_identity()
         self.assertIsNotNone(response)
-    
+
     def test_simulate_principal_policy(self):
         arn = self.api_talker.get_caller_identity()["Arn"]
 
-        with patch("boto3.client") as mocker:
-            mocker().simulate_principal_policy.return_value = {"EvaluationResults": [{"EvalDecision": "allowed"}]}
+        with patch.object(
+            self.api_talker.iam_client,
+            "simulate_principal_policy",
+            MagicMock(return_value={"EvaluationResults": [{"EvalDecision": "allowed"}]}),
+        ):
             eval_results = self.api_talker.simulate_principal_policy(arn, ["sts:SimulatePrincipalPolicy"])[
                 "EvaluationResults"
             ]
