@@ -62,13 +62,14 @@ class AWSAPITalkerTest(TestCase):
         response = self.api_talker.get_caller_identity()
         self.assertIsNotNone(response)
 
-    """
-    def simulate_principal_policy(self):
+    
+    def test_simulate_principal_policy(self):
+        arn = self.api_talker.get_caller_identity()["Arn"]
 
-        # self.api_talker.
-        response = self.api_talker.simulate_principal_policy(policy_source_arn, action_names)
-        self.assertIsNotNone(response)
-    """
+        eval_results = self.api_talker.simulate_principal_policy(arn, ["iam:SimulatePrincipalPolicy"])["EvaluationResults"]
+
+        self.assertEquals(eval_results[0]["EvalDecision"], "allowed")
+    
     def test_describe_organization(self):
 
         self.api_talker.create_organization("ALL")
