@@ -48,7 +48,7 @@ class Iteration:
 class AWSTree:
     """Tree structure for AWS data."""
 
-    def __init__(self, name, ou_id, iterations: list[Iteration]) -> None:
+    def __init__(self, name: str, ou_id: str, iterations: list[Iteration]) -> None:
         """Initialize AWSTree object."""
         self.name = name
         self.ou_id = ou_id
