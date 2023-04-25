@@ -21,7 +21,7 @@ class SyncData:
         )
 
     def __repr__(self) -> str:
-        """Overload to string function for SyncData type."""
+        """Overload to repr function for SyncData type."""
         return f"SyncData('{self.project_email}', '{self.project_slug}', '{self.project_semester}')"
 
 
@@ -35,7 +35,7 @@ class Iteration:
         self.members = members
 
     def __repr__(self) -> str:
-        """Overload to string function for Iteration datatype."""
+        """Overload to repr function for Iteration datatype."""
         return f"Iteration('{self.name}', '{self.ou_id}', {self.members})"
 
     def __eq__(self, other: Iteration) -> bool:
@@ -55,7 +55,7 @@ class AWSTree:
         self.iterations = iterations
 
     def __repr__(self) -> str:
-        """Overload to string function for AWSTree object."""
+        """Overload to repr function for AWSTree object."""
         return f"AWSTree('{self.name}', '{self.ou_id}', {self.iterations})"
 
     def __eq__(self, other: AWSTree) -> bool:

@@ -150,13 +150,13 @@ class AWSTreeChecksTest(TestCase):
         )
 
     def test_repr_AWSTree(self):
-        self.assertEquals(str(self.awstree), "AWSTree('Name', '1234', [])")
+        self.assertEquals(repr(self.awstree), "AWSTree('Name', '1234', [])")
 
     def test_repr_Iteration(self):
-        self.assertEquals(str(self.iteration), "Iteration('Name', '1234', [])")
+        self.assertEquals(repr(self.iteration), "Iteration('Name', '1234', [])")
 
     def test_repr_SyncData(self):
-        self.assertEquals(str(self.sync_data), "SyncData('email@example.com', 'Project X', 'Spring 2020')")
+        self.assertEquals(repr(self.sync_data), "SyncData('email@example.com', 'Project X', 'Spring 2020')")
 
     def test_awstree_to_syncdata_list(self):
         self.assertEqual(self.aws_tree1.awstree_to_syncdata_list(), self.treelist)
@@ -208,4 +208,4 @@ class AWSTreeChecksTest(TestCase):
     def test_Iteration_equals(self):
         self.assertEqual(self.aws_tree1.iterations[0], self.aws_tree1.iterations[0])
         self.assertNotEqual(self.aws_tree1.iterations[0], self.aws_tree1.iterations[1])
-        self.assertRaises(TypeError, awssync.AWSTree("", "", []).__eq__, [])
+        self.assertRaises(TypeError, awssync.Iteration("", "", []).__eq__, [])
