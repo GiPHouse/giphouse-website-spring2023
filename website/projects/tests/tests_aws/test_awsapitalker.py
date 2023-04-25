@@ -18,10 +18,10 @@ class AWSAPITalkerTest(TestCase):
         self.mock_iam = mock_iam()
         self.mock_org = mock_organizations()
         self.mock_sts = mock_sts()
-        self.api_talker = awsapitalker.AWSAPITalker()
         self.mock_iam.start()
         self.mock_org.start()
         self.mock_sts.start()
+        self.api_talker = awsapitalker.AWSAPITalker()
 
     def tearDown(self):
         self.mock_iam.stop()
