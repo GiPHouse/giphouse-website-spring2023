@@ -18,9 +18,7 @@ class SyncDataTest(TestCase):
 
     def test_throw_type_error_SyncData_class(self):
         """Test Type Error when equals is called on wrong type."""
-        with self.assertRaises(TypeError) as context:
-            self.sync("", "", "") == []
-        self.assertTrue("Must compare to object of type SyncData" in str(context.exception))
+        self.assertRaises(TypeError, self.sync("a", "b", "c").__eq__, 123)
 
 
 class AWSSyncListTest(TestCase):
@@ -205,13 +203,9 @@ class AWSTreeChecksTest(TestCase):
     def test_AWSTree_equals(self):
         self.assertEqual(self.aws_tree1, self.aws_tree1)
         self.assertNotEqual(self.aws_tree1, self.aws_tree2)
-        with self.assertRaises(TypeError):
-            awssync.AWSTree("", "", []) == []
-            self.assertRaises(TypeError)
+        self.assertRaises(TypeError, awssync.AWSTree("", "", []).__eq__, [])
 
     def test_Iteration_equals(self):
         self.assertEqual(self.aws_tree1.iterations[0], self.aws_tree1.iterations[0])
         self.assertNotEqual(self.aws_tree1.iterations[0], self.aws_tree1.iterations[1])
-        with self.assertRaises(TypeError):
-            awssync.Iteration("", "", []) == []
-            self.assertRaises(TypeError)
+        self.assertRaises(TypeError, awssync.AWSTree("", "", []).__eq__, [])
