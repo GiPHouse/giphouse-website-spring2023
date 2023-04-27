@@ -5,7 +5,7 @@ import boto3
 
 from django.test import TestCase
 
-from moto import mock_iam, mock_organizations, mock_sts
+from moto import mock_organizations, mock_sts
 
 from projects.aws import awsapitalker
 
@@ -15,18 +15,41 @@ class AWSAPITalkerTest(TestCase):
 
     def setUp(self):
         """Set up testing environment."""
-        self.mock_iam = mock_iam()
         self.mock_org = mock_organizations()
         self.mock_sts = mock_sts()
-        # self.mock_iam.start()
         self.mock_org.start()
         self.mock_sts.start()
         self.api_talker = awsapitalker.AWSAPITalker()
 
     def tearDown(self):
-        # self.mock_iam.stop()
         self.mock_org.stop()
         self.mock_sts.stop()
+
+    def create_organization(self):
+        """Returns the ID of the organization created for testing"""
+        org_info = self.api_talker.create_organization("ALL")
+        return org_info["Organization"]["Id"]
+
+    def create_dummy_policy_content(self):
+        """Returns a string containing the content of a policy used for testing."""
+        return json.dumps({"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]})
+
+    def create_dummy_policy(self):
+        """
+        Creates a policy used for testing.
+
+        :return: ID of the created policy.
+        """
+        moto_client = boto3.client("organizations")
+
+        policy_content = self.create_dummy_policy_content()
+
+        return moto_client.create_policy(
+            Name="Test policy",
+            Content=policy_content,
+            Type="SERVICE_CONTROL_POLICY",
+            Description="Policy for testing purposes",
+        )["Policy"]["PolicySummary"]["Id"]
 
     def test_create_organization(self):
         response = self.api_talker.create_organization("ALL")
@@ -34,8 +57,7 @@ class AWSAPITalkerTest(TestCase):
         self.assertEquals(response["Organization"]["FeatureSet"], "ALL")
 
     def test_create_organizational_unit(self):
-        org_info = self.api_talker.create_organization("ALL")
-        org_id = org_info["Organization"]["Id"]
+        org_id = self.create_organization()
 
         response = self.api_talker.create_organizational_unit(org_id, "Test OU")
 
@@ -44,8 +66,7 @@ class AWSAPITalkerTest(TestCase):
     def test_attach_policy(self):
         moto_client = boto3.client("organizations")
 
-        org_info = self.api_talker.create_organization("ALL")
-        org_id = org_info["Organization"]["Id"]
+        org_id = self.create_organization()
 
         policy_id = self.create_dummy_policy()
 
@@ -76,7 +97,7 @@ class AWSAPITalkerTest(TestCase):
         self.assertEquals(eval_results[0]["EvalDecision"], "allowed")
 
     def test_describe_organization(self):
-        self.api_talker.create_organization("ALL")
+        self.create_organization()
 
         response = self.api_talker.describe_organization()
 
@@ -85,7 +106,7 @@ class AWSAPITalkerTest(TestCase):
         self.assertIn("MasterAccountEmail", response["Organization"])
 
     def test_describe_policy(self):
-        self.api_talker.create_organization("ALL")
+        self.create_organization()
 
         policy_id = self.create_dummy_policy()
 
@@ -100,7 +121,7 @@ class AWSAPITalkerTest(TestCase):
     def test_create_account(self):
         moto_client = boto3.client("organizations")
 
-        self.api_talker.create_organization("ALL")
+        self.create_organization()
 
         response = self.api_talker.create_account("test@example.com", "Test")
 
@@ -112,8 +133,7 @@ class AWSAPITalkerTest(TestCase):
     def test_move_account(self):
         moto_client = boto3.client("organizations")
 
-        org_info = self.api_talker.create_organization("ALL")
-        org_id = org_info["Organization"]["Id"]
+        org_id = self.create_organization()
 
         account_status = self.api_talker.create_account("test@example.com", "Test")
         account_id = account_status["CreateAccountStatus"]["AccountId"]
@@ -130,23 +150,14 @@ class AWSAPITalkerTest(TestCase):
         self.assertNotIn(account_id, [account["Id"] for account in accounts_under_source])
         self.assertIn(account_id, [account["Id"] for account in accounts_under_dest])
 
-    def create_dummy_policy_content(self):
-        """Returns a string containing the content of a policy used for testing."""
-        return json.dumps({"Version": "2012-10-17", "Statement": [{"Effect": "Deny", "Action": "*", "Resource": "*"}]})
+    def test_list_tags_for_resource(self):
+        org_id = self.create_organization()
 
-    def create_dummy_policy(self):
-        """
-        Creates a policy used for testing.
+        specified_tags = [{"Key": "key1", "Value": "val1"}, {"Key": "key2", "Value": "val2"}]
 
-        :return: ID of the created policy.
-        """
-        moto_client = boto3.client("organizations")
+        response = self.api_talker.create_organizational_unit(org_id, "Test OU", specified_tags)
+        ou_id = response["OrganizationalUnit"]["Id"]
 
-        policy_content = self.create_dummy_policy_content()
+        received_tags = self.api_talker.list_tags_for_resource(ou_id)
 
-        return moto_client.create_policy(
-            Name="Test policy",
-            Content=policy_content,
-            Type="SERVICE_CONTROL_POLICY",
-            Description="Policy for testing purposes",
-        )["Policy"]["PolicySummary"]["Id"]
+        self.assertEqual(specified_tags, received_tags)

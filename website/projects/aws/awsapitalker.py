@@ -1,14 +1,23 @@
 import boto3
 
+import botocore
+
 
 class AWSAPITalker:
-    """Communicate with AWS boto3 API."""
+    """Communicate with AWS API using boto3."""
 
     def __init__(self):
-        """Initialize the clients needed to communicate with the boto3 API."""
+        """
+        Initialize in order to communicate with the AWS API.
+
+        First, initializes the boto3 clients which communicate with AWS.
+        Second, sets the maximum amount of elements to fit on one page of an AWS response.
+        """
         self.iam_client = boto3.client("iam")
         self.org_client = boto3.client("organizations")
         self.sts_client = boto3.client("sts")
+
+        self.max_results = 20
 
     def create_organization(self, feature_set: str) -> dict:
         """
@@ -85,3 +94,58 @@ class AWSAPITalker:
         self.org_client.move_account(
             AccountId=account_id, SourceParentId=source_parent_id, DestinationParentId=dest_parent_id
         )
+
+    def combine_pages(self, page_iterator: botocore.paginate.PageIterator, key: str) -> list[dict]:
+        """
+        Combine the information on each page of an AWS API response into a list.
+
+        This function is only used for AWS API operations which can return multiple pages as a response.
+
+        :param page_iterator: boto3 feature which iterates over all pages.
+        :param key: the key corresponding to the list of values to be retrieved from each page.
+        :return: a list that combines the values from all pages.
+        """
+        list = []
+
+        for page in page_iterator:
+            list = list + page[key]
+
+        return list
+
+    def list_organizational_units_for_parent(self, parent_id: str) -> list[dict]:
+        """
+        List all organizational units below the specified parent.
+
+        :param parent_id: ID of the parent.
+        :return: list of dictionaries containing organizational unit information.
+        """
+        paginator = self.org_client.get_paginator("list_organizational_units_for_parent")
+        page_iterator = paginator.paginate(ParentId=parent_id, MaxResults=self.max_results)
+
+        return self.combine_pages(page_iterator, "OrganizationalUnits")
+
+    def list_accounts_for_parent(self, parent_id: str) -> list[dict]:
+        """
+        List all accounts below the specified parent.
+
+        :param parent_id: ID of the parent.
+        :return: list of dictionaries containing account information
+        """
+        paginator = self.org_client.get_paginator("list_accounts_for_parent")
+        page_iterator = paginator.paginate(ParentId=parent_id, MaxResults=self.max_results)
+
+        return self.combine_pages(page_iterator, "Accounts")
+
+    def list_tags_for_resource(self, resource_id: str) -> list[dict]:
+        """
+        List all tags belonging to the specified resource.
+
+        :param resource_id: ID of the resource.
+        :return: list of dictionaries containing tag information
+        """
+        paginator = self.org_client.get_paginator("list_tags_for_resource")
+        page_iterator = paginator.paginate(
+            ResourceId=resource_id,
+        )
+
+        return self.combine_pages(page_iterator, "Tags")
