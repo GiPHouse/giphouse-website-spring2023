@@ -1,32 +1,26 @@
 from __future__ import annotations
 
-import boto3
-
 import logging
 
-from projects.aws.awssyncchecker_permissions import api_permissions
+from projects.aws.awsapitalker import AWSAPITalker
 
 
 class AWSSyncChecker:
-    def __init__(self, logger: logging.Logger):
-        self.required_aws_actions = api_permissions
-        self.logger = logger
+    """Checks for AWSSync."""
 
-        # TODO: Replace with AWS API talker class object (pending sprint task).
-        self.client_org = boto3.client("organizations")
-        self.client_iam = boto3.client("iam")
-        self.client_sts = boto3.client("sts")
+    def __init__(self, logger: logging.Logger):
+        """Initialize an instance with an AWSAPITalker and a logger."""
+        self.api_talker = AWSAPITalker()
+        self.logger = logger
 
     def check_aws_api_connection(self) -> None:
         """Check AWS API connection establishment with current boto3 credentials."""
-        self.client_org.get_caller_identity()
+        self.api_talker.get_caller_identity()
 
     def check_iam_policy(self, desired_actions: list[str]) -> None:
         """Check permissions for list of AWS API actions."""
-        iam_user_arn = self.client_sts.get_caller_identity()["Arn"]
-        policy_evaluations = self.client_iam.simulate_principal_policy(
-            PolicySourceArn=iam_user_arn, ActionNames=desired_actions
-        )
+        iam_user_arn = self.api_talker.get_caller_identity()["Arn"]
+        policy_evaluations = self.api_talker.simulate_principal_policy(iam_user_arn, desired_actions)
 
         denied_api_actions = [
             evaluation_result["EvalActionName"]
@@ -39,24 +33,24 @@ class AWSSyncChecker:
 
     def check_organization_existence(self) -> None:
         """Check existence AWS organization."""
-        self.client_org.describe_organization()
+        self.api_talker.describe_organization()
 
     def check_is_management_account(self) -> None:
         """Check if AWS API caller has same effective account ID as the organization's management account."""
-        organization_info = self.client_org.describe_organization()
-        iam_user_info = self.client_sts.get_caller_identity()
+        organization_info = self.api_talker.describe_organization()
+        iam_user_info = self.api_talker.get_caller_identity()
 
         management_account_id = organization_info["Organization"]["MasterAccountId"]
         api_caller_account_id = iam_user_info["Account"]
         is_management_account = management_account_id == api_caller_account_id
 
         if not is_management_account:
-            raise Exception(f"AWS API caller and organization's management account have different account IDs.")
+            raise Exception("AWS API caller and organization's management account have different account IDs.")
 
     def check_scp_enabled(self) -> None:
         """Check if SCP policy type feature is enabled for the AWS organization."""
-        organization_info = self.client_org.describe_organization()
-        available_policy_types = organization_info["AvailablePolicyTypes"]
+        organization_info = self.api_talker.describe_organization()
+        available_policy_types = organization_info["Organization"]["AvailablePolicyTypes"]
 
         scp_is_enabled = any(
             policy["Type"] == "SERVICE_CONTROL_POLICY" and policy["Status"] == "ENABLED"
@@ -66,7 +60,7 @@ class AWSSyncChecker:
         if not scp_is_enabled:
             raise Exception("The SCP policy type is disabled for the organization.")
 
-    def pipeline_preconditions(self) -> None:
+    def pipeline_preconditions(self, api_permissions: list[str]) -> None:
         """
         Check all crucial pipeline preconditions. Raises exception prematurely on failure.
 
@@ -79,7 +73,7 @@ class AWSSyncChecker:
         """
         preconditions = [
             (self.check_aws_api_connection, (), "AWS API connection established"),
-            (self.check_iam_policy, (self.required_aws_actions), "AWS API actions permissions"),
+            (self.check_iam_policy, (api_permissions,), "AWS API actions permissions"),
             (self.check_organization_existence, (), "AWS organization existence"),
             (self.check_is_management_account, (), "AWS API caller is management account"),
             (self.check_scp_enabled, (), "SCP enabled"),

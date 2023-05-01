@@ -53,5 +53,5 @@ api_permissions = [
     "organizations:TagResource",
     "organizations:UntagResource",
     "organizations:UpdateOrganizationalUnit",
-    "organizations:UpdatePolicy"
+    "organizations:UpdatePolicy",
 ]
