@@ -149,6 +149,33 @@ class AWSAPITalkerTest(TestCase):
         accounts_under_dest = moto_client.list_children(ParentId=dest_ou_id, ChildType="ACCOUNT")["Children"]
         self.assertNotIn(account_id, [account["Id"] for account in accounts_under_source])
         self.assertIn(account_id, [account["Id"] for account in accounts_under_dest])
+        
+    def test_list_organizational_units_for_parent(self):
+        self.create_organization()
+        moto_client = boto3.client("organizations")
+        root_id = moto_client.list_roots()["Roots"][0]["Id"]
+        
+        ou_1 = self.api_talker.create_organizational_unit(root_id, "Test OU 1")
+        ou_2 = self.api_talker.create_organizational_unit(root_id, "Test OU 2")
+
+        received_ous = self.api_talker.list_organizational_units_for_parent(root_id)
+        expected_ous = [ou_1["OrganizationalUnit"], ou_2["OrganizationalUnit"]]
+        
+        self.assertCountEqual(expected_ous, received_ous)
+        
+    def test_list_accounts_for_parent(self):
+        self.create_organization()
+        moto_client = boto3.client("organizations")
+        
+        root_id = moto_client.list_roots()["Roots"][0]["Id"]
+        account_1 = self.api_talker.create_account("test1@example.com", "Test Account 1")
+        account_2 = self.api_talker.create_account("test2@example.com", "Test Account 2")
+    
+        received_accounts = self.api_talker.list_accounts_for_parent(root_id)
+        received_emails = [account["Email"] for account in received_accounts]
+       
+        expected_emails = ["master@example.com","test1@example.com", "test2@example.com"]
+        self.assertEqual(expected_emails, received_emails)
 
     def test_list_tags_for_resource(self):
         org_id = self.create_organization()
