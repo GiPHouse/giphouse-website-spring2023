@@ -149,3 +149,10 @@ class AWSAPITalker:
         )
 
         return self.combine_pages(page_iterator, "Tags")
+
+    def list_roots(self) -> list[dict]:
+        """List all roots in the organization."""
+        paginator = self.org_client.get_paginator("list_roots")
+        page_iterator = paginator.paginate()
+
+        return self.combine_pages(page_iterator, "Roots")
