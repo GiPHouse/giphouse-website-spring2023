@@ -32,8 +32,8 @@ class AWSAPITalker:
         """
         Create an organizational unit.
 
-        :param parent_id: parent OU ID define where you want to create the new OU.
-        :param ou_name: ou_name deifne the name of the new OU.
+        :param parent_id: the root/OU below which where the new OU will be created.
+        :param ou_name: the name of the new OU.
         :param tags: tags (list of dictionaries containing the keys 'Key' and 'Value') to be attached to the account.
         :return: dictionary containing information about the organizational unit.
         """
@@ -43,8 +43,8 @@ class AWSAPITalker:
         """
         Attach the specified policy to the specified target.
 
-        :param target_id: string target_id is identifying the target.
-        :param policy_id:string policy_id is identifying the policy.
+        :param target_id: ID of the target to which the policy should be attached.
+        :param policy_id: ID of the policy to attach.
         """
         self.org_client.attach_policy(TargetId=target_id, PolicyId=policy_id)
 
@@ -151,7 +151,11 @@ class AWSAPITalker:
         return self.combine_pages(page_iterator, "Tags")
 
     def list_roots(self) -> list[dict]:
-        """List all roots in the organization."""
+        """
+        List all roots in the organization.
+
+        :return: list of dictionaries containing root information.
+        """
         paginator = self.org_client.get_paginator("list_roots")
         page_iterator = paginator.paginate()
 
