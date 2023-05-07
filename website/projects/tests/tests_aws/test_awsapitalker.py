@@ -155,13 +155,12 @@ class AWSAPITalkerTest(TestCase):
 
         root_id = self.api_talker.list_roots()[0]["Id"]
 
-        ou_1 = self.api_talker.create_organizational_unit(root_id, "Test OU 1")
-        ou_2 = self.api_talker.create_organizational_unit(root_id, "Test OU 2")
+        ou_1 = self.api_talker.create_organizational_unit(root_id, "Test OU 1")["OrganizationalUnit"]
+        ou_2 = self.api_talker.create_organizational_unit(root_id, "Test OU 2")["OrganizationalUnit"]
 
-        received_ous = self.api_talker.list_organizational_units_for_parent(root_id)
-        expected_ous = [ou_1["OrganizationalUnit"], ou_2["OrganizationalUnit"]]
+        received_ou_list = self.api_talker.list_organizational_units_for_parent(root_id)
 
-        self.assertCountEqual(expected_ous, received_ous)
+        self.assertCountEqual([ou_1, ou_2], received_ou_list)
 
     def test_list_accounts_for_parent(self):
         self.create_organization()

@@ -961,4 +961,3 @@ class AWSAPITalkerTest(TestCase):
                 "create_policy",
             )
         return botocore.client.BaseClient._make_api_call(self, operation_name, kwarg)
-      
