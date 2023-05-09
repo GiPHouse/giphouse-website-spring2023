@@ -1,8 +1,6 @@
 import json
 from unittest.mock import MagicMock, patch
 
-import boto3
-
 from django.test import TestCase
 
 from moto import mock_organizations, mock_sts
@@ -40,11 +38,9 @@ class AWSAPITalkerTest(TestCase):
 
         :return: ID of the created policy.
         """
-        moto_client = boto3.client("organizations")
-
         policy_content = self.create_dummy_policy_content()
 
-        return moto_client.create_policy(
+        return self.api_talker.org_client.create_policy(
             Name="Test policy",
             Content=policy_content,
             Type="SERVICE_CONTROL_POLICY",
@@ -64,8 +60,6 @@ class AWSAPITalkerTest(TestCase):
         self.assertEqual(response["OrganizationalUnit"]["Name"], "Test OU")
 
     def test_attach_policy(self):
-        moto_client = boto3.client("organizations")
-
         org_id = self.create_organization()
 
         policy_id = self.create_dummy_policy()
@@ -75,7 +69,7 @@ class AWSAPITalkerTest(TestCase):
 
         self.api_talker.attach_policy(ou_id, policy_id)
 
-        response = moto_client.list_policies_for_target(TargetId=ou_id, Filter="SERVICE_CONTROL_POLICY")
+        response = self.api_talker.org_client.list_policies_for_target(TargetId=ou_id, Filter="SERVICE_CONTROL_POLICY")
         self.assertIn(policy_id, [p["Id"] for p in response["Policies"]])
 
     def test_get_caller_identity(self):
@@ -119,20 +113,16 @@ class AWSAPITalkerTest(TestCase):
         self.assertEquals(policy_content, policy["Content"])
 
     def test_create_account(self):
-        moto_client = boto3.client("organizations")
-
         self.create_organization()
 
         response = self.api_talker.create_account("test@example.com", "Test")
 
-        accounts = moto_client.list_accounts()["Accounts"]
+        accounts = self.api_talker.org_client.list_accounts()["Accounts"]
 
         self.assertEquals(response["CreateAccountStatus"]["AccountName"], "Test")
         self.assertIn(("Test", "test@example.com"), [(account["Name"], account["Email"]) for account in accounts])
 
     def test_move_account(self):
-        moto_client = boto3.client("organizations")
-
         org_id = self.create_organization()
 
         account_status = self.api_talker.create_account("test@example.com", "Test")
@@ -145,8 +135,12 @@ class AWSAPITalkerTest(TestCase):
 
         self.api_talker.move_account(account_id, source_ou_id, dest_ou_id)
 
-        accounts_under_source = moto_client.list_children(ParentId=source_ou_id, ChildType="ACCOUNT")["Children"]
-        accounts_under_dest = moto_client.list_children(ParentId=dest_ou_id, ChildType="ACCOUNT")["Children"]
+        accounts_under_source = self.api_talker.org_client.list_children(ParentId=source_ou_id, ChildType="ACCOUNT")[
+            "Children"
+        ]
+        accounts_under_dest = self.api_talker.org_client.list_children(ParentId=dest_ou_id, ChildType="ACCOUNT")[
+            "Children"
+        ]
         self.assertNotIn(account_id, [account["Id"] for account in accounts_under_source])
         self.assertIn(account_id, [account["Id"] for account in accounts_under_dest])
 
