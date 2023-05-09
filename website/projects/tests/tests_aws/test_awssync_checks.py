@@ -2,8 +2,8 @@
 
 from django.test import TestCase
 
-from projects.awssync_checks import Checks
-from projects.awssync_structs import AWSTree, Iteration, SyncData
+from projects.aws.awssync_checks import Checks
+from projects.aws.awssync_structs import AWSTree, Iteration, SyncData
 
 
 class ChecksTest(TestCase):

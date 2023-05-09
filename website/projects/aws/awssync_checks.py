@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from projects.awssync_structs import AWSTree
+from projects.aws.awssync_structs import AWSTree
 
 
 class Checks:
