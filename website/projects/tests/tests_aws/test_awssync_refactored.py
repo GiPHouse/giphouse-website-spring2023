@@ -19,7 +19,7 @@ class AWSSyncRefactoredTest(TestCase):
     def setUp(self):
         self.sync = AWSSyncRefactored()
 
-    def test_create_course_ou__not_exists(self):
+    def test_create_course_ou__new(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
 
         root_id = self.sync.api_talker.list_roots()[0]["Id"]
@@ -36,7 +36,7 @@ class AWSSyncRefactoredTest(TestCase):
         self.assertIn(course_ou_id, ou_ids)
         self.assertIn(current_semester_name, ou_names)
 
-    def test_create_course_ou__exists(self):
+    def test_create_course_ou__already_exists(self):
         tree = AWSTree(
             "root",
             "r-123",
