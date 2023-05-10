@@ -48,7 +48,7 @@ class AWSSyncRefactoredTest(TestCase):
 
         with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Spring 2023"):
             course_ou_id = self.sync.create_course_ou(tree)
-        self.assertEquals("ou-456", course_ou_id)
+        self.assertEqual("ou-456", course_ou_id)
 
     def test_attach_policy__not_attached(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
