@@ -21,15 +21,20 @@ class AWSSyncRefactoredTest(TestCase):
 
     def test_create_course_ou__not_exists(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
+
         root_id = self.sync.api_talker.list_roots()[0]["Id"]
         tree = AWSTree("root", root_id, [])
+        current_semester_name = "Spring 2023"
 
-        with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Spring 2023"):
+        with patch.object(Semester.objects, "get_or_create_current_semester", return_value=current_semester_name):
             course_ou_id = self.sync.create_course_ou(tree)
+
         ous = self.sync.api_talker.list_organizational_units_for_parent(root_id)
         ou_ids = [ou["Id"] for ou in ous]
+        ou_names = [ou["Name"] for ou in ous]
 
         self.assertIn(course_ou_id, ou_ids)
+        self.assertIn(current_semester_name, ou_names)
 
     def test_create_course_ou__exists(self):
         tree = AWSTree(
