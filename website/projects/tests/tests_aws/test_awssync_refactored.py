@@ -19,14 +19,14 @@ class AWSSyncRefactoredTest(TestCase):
     def setUp(self):
         self.sync = AWSSyncRefactored()
 
-    def test_create_course_ou__new(self):
+    def test_get_or_create_course_ou__new(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
         root_id = self.sync.api_talker.list_roots()[0]["Id"]
         tree = AWSTree("root", root_id, [])
         current_semester_name = "Spring 2023"
 
         with patch.object(Semester.objects, "get_or_create_current_semester", return_value=current_semester_name):
-            course_ou_id = self.sync.create_course_ou(tree)
+            course_ou_id = self.sync.get_or_create_course_ou(tree)
 
         course_ou_exists = any(
             ou["Id"] == course_ou_id and ou["Name"] == current_semester_name
@@ -35,7 +35,7 @@ class AWSSyncRefactoredTest(TestCase):
 
         self.assertTrue(course_ou_exists)
 
-    def test_create_course_ou__already_exists(self):
+    def test_get_or_create_course_ou__already_exists(self):
         tree = AWSTree(
             "root",
             "r-123",
@@ -46,7 +46,7 @@ class AWSSyncRefactoredTest(TestCase):
         )
 
         with patch.object(Semester.objects, "get_or_create_current_semester", return_value="Spring 2023"):
-            course_ou_id = self.sync.create_course_ou(tree)
+            course_ou_id = self.sync.get_or_create_course_ou(tree)
         self.assertEqual("ou-456", course_ou_id)
 
     def test_attach_policy__not_attached(self):

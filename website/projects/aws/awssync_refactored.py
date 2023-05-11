@@ -15,7 +15,7 @@ class AWSSyncRefactored:
         """Create an AWSSync instance."""
         self.api_talker = AWSAPITalker()
 
-    def create_course_ou(self, tree: AWSTree) -> str:
+    def get_or_create_course_ou(self, tree: AWSTree) -> str:
         """Create organizational unit under root with name of current semester."""
         root_id = tree.ou_id
         course_ou_name = str(Semester.objects.get_or_create_current_semester())
