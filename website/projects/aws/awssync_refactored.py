@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import logging
-
 from botocore.exceptions import ClientError
 
 from courses.models import Semester
@@ -16,9 +14,6 @@ class AWSSyncRefactored:
     def __init__(self):
         """Create an AWSSync instance."""
         self.api_talker = AWSAPITalker()
-
-        self.logger = logging.getLogger("django.aws")
-        self.logger.setLevel(logging.DEBUG)
 
     def create_course_ou(self, tree: AWSTree) -> str:
         """Create organizational unit under root with name of current semester."""
