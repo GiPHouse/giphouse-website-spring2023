@@ -97,54 +97,6 @@ class AWSSyncRefactored:
             self.logger.error(f"Something went wrong extracting the AWS setup: {error}")
             self.fail = True
 
-    def extract_aws_setup2(self, parent_ou_id):
-
-        client = boto3.client("organizations")
-
-        aws_tree = AWSTree(
-            "root",
-            parent_ou_id,
-            [
-                Iteration(
-                    ou["Name"],
-                    ou["Id"],
-                    member_accounts := [
-                        SyncData(
-                            account["Email"],
-                            next(
-                                (
-                                    d["Value"]
-                                    for d in client.list_tags_for_resource(ResourceId=account["Id"])["Tags"]
-                                    if d["Key"] == "project_slug"
-                                ),
-                                None,
-                            ),
-                            next(
-                                (
-                                    d["Value"]
-                                    for d in client.list_tags_for_resource(ResourceId=account["Id"])["Tags"]
-                                    if d["Key"] == "project_semester"
-                                ),
-                                None,
-                            ),
-                        )
-                    ],
-                )
-                for ou in client.list_organizational_units_for_parent(ParentId=parent_ou_id)["OrganizationalUnits"]
-                for account in client.list_accounts_for_parent(ParentId=ou["Id"])["Accounts"]
-            ],
-        )
-
-        for member_account in member_accounts:
-            if not member_account.project_semester or not member_account.project_slug:
-                try:
-                    raise ClientError({}, "no tag")
-                except ClientError as error:
-                    self.logger.debug(error)
-                    self.fail = True
-
-        return aws_tree
-
     def get_or_create_course_ou(self, tree: AWSTree) -> str:
         """Create organizational unit under root with name of current semester."""
         root_id = tree.ou_id
