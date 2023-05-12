@@ -8,20 +8,14 @@ from moto import mock_organizations, mock_sts
 from projects.aws import awsapitalker
 
 
+@mock_organizations
+@mock_sts
 class AWSAPITalkerTest(TestCase):
     """Test AWSAPITalker class."""
 
     def setUp(self):
         """Set up testing environment."""
-        self.mock_org = mock_organizations()
-        self.mock_sts = mock_sts()
-        self.mock_org.start()
-        self.mock_sts.start()
         self.api_talker = awsapitalker.AWSAPITalker()
-
-    def tearDown(self):
-        self.mock_org.stop()
-        self.mock_sts.stop()
 
     def create_organization(self):
         """Returns the ID of the organization created for testing"""
