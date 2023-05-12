@@ -96,11 +96,10 @@ class AWSSyncRefactored:
         )
         for member_account in member_accounts:
             if not member_account.project_slug or not member_account.project_semester:
-                try:
-                    raise ClientError({}, "no tag")
-                except ClientError as error:
-                    self.logger.error(error)
-                    self.fail = True
+                self.logger.warning(
+                    f"Account {member_account.project_email} has no project slug or semester tag."
+                )
+                self.fail = True
         return aws_tree
 
     def get_or_create_course_ou(self, tree: AWSTree) -> str:
