@@ -2,7 +2,6 @@
 import json
 from unittest.mock import patch
 
-import boto3
 
 from botocore.exceptions import ClientError
 
@@ -17,7 +16,6 @@ from mailing_lists.models import MailingList
 from projects.aws.awssync_refactored import AWSSyncRefactored
 from projects.aws.awssync_structs import AWSTree, Iteration, SyncData
 from projects.models import Project
-from projects.tests.tests_aws.test_awssync import AWSAPITalkerTest
 
 
 @mock_organizations
