@@ -2,8 +2,6 @@ from __future__ import annotations
 
 import logging
 
-import boto3
-
 from botocore.exceptions import ClientError
 
 from courses.models import Semester
@@ -74,24 +72,46 @@ class AWSSyncRefactored:
         :return: A AWSTree object containing all the children of the parent OU.
         """
         try:
-            OUs_for_parent = self.api_talker.list_organizational_units_for_parent(parent_id=parent_ou_id)
-            aws_tree = AWSTree("root", parent_ou_id, [])
-            for ou in OUs_for_parent:
-                accounts = self.api_talker.list_accounts_for_parent(parent_id=ou["Id"])
-                sync_data = []
-                for account in accounts:
-                    tags = {
-                        d["Key"]: d["Value"] for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
-                    }
-                    if all(key in tags for key in ["project_slug", "project_semester"]):
-                        sync_data.append(SyncData(account["Email"], tags["project_slug"], tags["project_semester"]))
-                    else:
-                        self.logger.error(
-                            f"Could not find project_slug or project_semester tag for account with ID: {account['Id']}"
-                        )
+            aws_tree = AWSTree(
+                "root",
+                parent_ou_id,
+                [
+                    Iteration(
+                        ou["Name"],
+                        ou["Id"],
+                        member_accounts := [
+                            SyncData(
+                                account["Email"],
+                                next(
+                                    (
+                                        d["Value"]
+                                        for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
+                                        if d["Key"] == "project_slug"
+                                    ),
+                                    None,
+                                ),
+                                next(
+                                    (
+                                        d["Value"]
+                                        for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
+                                        if d["Key"] == "project_semester"
+                                    ),
+                                    None,
+                                ),
+                            )
+                        ],
+                    )
+                    for ou in self.api_talker.list_organizational_units_for_parent(parent_id=parent_ou_id)
+                    for account in self.api_talker.list_accounts_for_parent(parent_id=ou["Id"])
+                ],
+            )
+            for member_account in member_accounts:
+                if not member_account.project_slug or not member_account.project_semester:
+                    try:
+                        raise ClientError({}, "no tag")
+                    except ClientError as error:
+                        self.logger.error(error)
                         self.fail = True
-
-                aws_tree.iterations.append(Iteration(ou["Name"], ou["Id"], sync_data))
             return aws_tree
         except ClientError as error:
             self.logger.error(f"Something went wrong extracting the AWS setup: {error}")
