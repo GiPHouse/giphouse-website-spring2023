@@ -96,9 +96,7 @@ class AWSSyncRefactored:
         )
         for member_account in member_accounts:
             if not member_account.project_slug or not member_account.project_semester:
-                self.logger.warning(
-                    f"Account {member_account.project_email} has no project slug or semester tag."
-                )
+                self.logger.warning(f"Account {member_account.project_email} has no project slug or semester tag.")
                 self.fail = True
         return aws_tree
 
