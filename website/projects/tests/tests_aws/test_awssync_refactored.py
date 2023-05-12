@@ -34,12 +34,6 @@ class AWSSyncRefactoredTest(TestCase):
         self.sync = AWSSyncRefactored()
         self.api_talker = self.sync.api_talker
 
-    def test_get_all_mailing_lists(self):
-        """Test get_all_mailing_lists function."""
-        mailing_lists = self.sync.get_all_mailing_lists()
-        self.assertIsInstance(mailing_lists, list)
-        self.assertEqual(mailing_lists, ["test0@giphouse.nl", "test1@giphouse.nl", "test2@giphouse.nl"])
-
     def test_get_syncdata_from_giphouse_normal(self):
         """Test get_emails_with_teamids function in optimal conditions."""
         email_id = self.sync.get_syncdata_from_giphouse()
@@ -129,11 +123,6 @@ class AWSSyncRefactoredTest(TestCase):
         expected_tree = AWSTree("root", root_id, [expected_iteration])
 
         self.assertEqual(aws_tree, expected_tree)
-
-    def test_extract_aws_setup_no_root(self):
-        self.sync.api_talker.create_organization(feature_set="ALL")
-        self.sync.extract_aws_setup("NonExistentRoot")
-        self.assertTrue(self.sync.fail)
 
     def test_extract_aws_setup_no_slugs(self):
         self.sync.api_talker.create_organization(feature_set="ALL")

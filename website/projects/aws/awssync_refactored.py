@@ -24,16 +24,6 @@ class AWSSyncRefactored:
         self.org_info = None
         self.fail = False
 
-    def get_all_mailing_lists(self) -> list[str]:
-        """
-        Get all mailing lists from the database.
-
-        :return: List of mailing list email addresses.
-        """
-        mailing_lists = MailingList.objects.all()
-        mailing_list_names = [ml.email_address for ml in mailing_lists]
-        return mailing_list_names
-
     def get_syncdata_from_giphouse(self) -> list[SyncData]:
         """
         Create a list of SyncData struct containing email, slug and semester.
@@ -71,51 +61,47 @@ class AWSSyncRefactored:
         :param parent_ou_id: The ID of the parent OU.
         :return: A AWSTree object containing all the children of the parent OU.
         """
-        try:
-            aws_tree = AWSTree(
-                "root",
-                parent_ou_id,
-                [
-                    Iteration(
-                        ou["Name"],
-                        ou["Id"],
-                        member_accounts := [
-                            SyncData(
-                                account["Email"],
-                                next(
-                                    (
-                                        d["Value"]
-                                        for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
-                                        if d["Key"] == "project_slug"
-                                    ),
-                                    None,
+        aws_tree = AWSTree(
+            "root",
+            parent_ou_id,
+            [
+                Iteration(
+                    ou["Name"],
+                    ou["Id"],
+                    member_accounts := [
+                        SyncData(
+                            account["Email"],
+                            next(
+                                (
+                                    d["Value"]
+                                    for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
+                                    if d["Key"] == "project_slug"
                                 ),
-                                next(
-                                    (
-                                        d["Value"]
-                                        for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
-                                        if d["Key"] == "project_semester"
-                                    ),
-                                    None,
+                                None,
+                            ),
+                            next(
+                                (
+                                    d["Value"]
+                                    for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
+                                    if d["Key"] == "project_semester"
                                 ),
-                            )
-                        ],
-                    )
-                    for ou in self.api_talker.list_organizational_units_for_parent(parent_id=parent_ou_id)
-                    for account in self.api_talker.list_accounts_for_parent(parent_id=ou["Id"])
-                ],
-            )
-            for member_account in member_accounts:
-                if not member_account.project_slug or not member_account.project_semester:
-                    try:
-                        raise ClientError({}, "no tag")
-                    except ClientError as error:
-                        self.logger.error(error)
-                        self.fail = True
-            return aws_tree
-        except ClientError as error:
-            self.logger.error(f"Something went wrong extracting the AWS setup: {error}")
-            self.fail = True
+                                None,
+                            ),
+                        )
+                    ],
+                )
+                for ou in self.api_talker.list_organizational_units_for_parent(parent_id=parent_ou_id)
+                for account in self.api_talker.list_accounts_for_parent(parent_id=ou["Id"])
+            ],
+        )
+        for member_account in member_accounts:
+            if not member_account.project_slug or not member_account.project_semester:
+                try:
+                    raise ClientError({}, "no tag")
+                except ClientError as error:
+                    self.logger.error(error)
+                    self.fail = True
+        return aws_tree
 
     def get_or_create_course_ou(self, tree: AWSTree) -> str:
         """Create organizational unit under root with name of current semester."""
