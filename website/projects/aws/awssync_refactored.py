@@ -26,19 +26,6 @@ class AWSSyncRefactored:
         self.org_info = None
         self.fail = False
 
-    def create_aws_organization(self):
-        """Create an AWS organization with the current user as the management account."""
-        client = boto3.client("organizations")
-        try:
-            response = client.create_organization(FeatureSet="ALL")
-            self.org_info = response["Organization"]
-            self.logger.info("Created an AWS organization and saved organization info.")
-        except ClientError as error:
-            self.fail = True
-            self.logger.error("Something went wrong creating an AWS organization.")
-            self.logger.debug(f"{error}")
-            self.logger.debug(f"{error.response}")
-
     def get_all_mailing_lists(self) -> list[str]:
         """
         Get all mailing lists from the database.
@@ -109,6 +96,54 @@ class AWSSyncRefactored:
         except ClientError as error:
             self.logger.error(f"Something went wrong extracting the AWS setup: {error}")
             self.fail = True
+
+    def extract_aws_setup2(self, parent_ou_id):
+
+        client = boto3.client("organizations")
+
+        aws_tree = AWSTree(
+            "root",
+            parent_ou_id,
+            [
+                Iteration(
+                    ou["Name"],
+                    ou["Id"],
+                    member_accounts := [
+                        SyncData(
+                            account["Email"],
+                            next(
+                                (
+                                    d["Value"]
+                                    for d in client.list_tags_for_resource(ResourceId=account["Id"])["Tags"]
+                                    if d["Key"] == "project_slug"
+                                ),
+                                None,
+                            ),
+                            next(
+                                (
+                                    d["Value"]
+                                    for d in client.list_tags_for_resource(ResourceId=account["Id"])["Tags"]
+                                    if d["Key"] == "project_semester"
+                                ),
+                                None,
+                            ),
+                        )
+                    ],
+                )
+                for ou in client.list_organizational_units_for_parent(ParentId=parent_ou_id)["OrganizationalUnits"]
+                for account in client.list_accounts_for_parent(ParentId=ou["Id"])["Accounts"]
+            ],
+        )
+
+        for member_account in member_accounts:
+            if not member_account.project_semester or not member_account.project_slug:
+                try:
+                    raise ClientError({}, "no tag")
+                except ClientError as error:
+                    self.logger.debug(error)
+                    self.fail = True
+
+        return aws_tree
 
     def get_or_create_course_ou(self, tree: AWSTree) -> str:
         """Create organizational unit under root with name of current semester."""

@@ -36,20 +36,6 @@ class AWSSyncRefactoredTest(TestCase):
         self.sync = AWSSyncRefactored()
         self.api_talker = self.sync.api_talker
 
-    def test_create_aws_organization(self):
-        moto_client = boto3.client("organizations")
-        org = self.sync
-        org.create_aws_organization()
-        describe_org = moto_client.describe_organization()["Organization"]
-        self.assertEqual(describe_org, org.org_info)
-
-    def test_create_aws_organization__exception(self):
-        org = self.sync
-        with patch("botocore.client.BaseClient._make_api_call", AWSAPITalkerTest.mock_api):
-            org.create_aws_organization()
-        self.assertTrue(org.fail)
-        self.assertIsNone(org.org_info)
-
     def test_get_all_mailing_lists(self):
         """Test get_all_mailing_lists function."""
         mailing_lists = self.sync.get_all_mailing_lists()
@@ -124,7 +110,7 @@ class AWSSyncRefactoredTest(TestCase):
         self.assertEquals(self.sync.generate_aws_sync_list(gip_list, aws_list), [test1])
 
     def test_extract_aws_setup(self):
-        self.sync.create_aws_organization()
+        self.sync.api_talker.create_organization(feature_set="ALL")
         root_id = self.api_talker.list_roots()[0]["Id"]
 
         ou_response = self.api_talker.create_organizational_unit(parent_id=root_id, ou_name="OU_1")
@@ -147,12 +133,12 @@ class AWSSyncRefactoredTest(TestCase):
         self.assertEqual(aws_tree, expected_tree)
 
     def test_extract_aws_setup_no_root(self):
-        self.sync.create_aws_organization()
+        self.sync.api_talker.create_organization(feature_set="ALL")
         self.sync.extract_aws_setup("NonExistentRoot")
         self.assertTrue(self.sync.fail)
 
     def test_extract_aws_setup_no_slugs(self):
-        self.sync.create_aws_organization()
+        self.sync.api_talker.create_organization(feature_set="ALL")
         root_id = self.api_talker.list_roots()[0]["Id"]
 
         response_OU_1 = self.api_talker.create_organizational_unit(parent_id=root_id, ou_name="OU_1")
