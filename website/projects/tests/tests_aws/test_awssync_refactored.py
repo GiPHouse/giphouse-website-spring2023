@@ -22,6 +22,11 @@ from projects.models import Project
 class AWSSyncRefactoredTest(TestCase):
     def setUp(self):
         """Set up testing environment."""
+        self.sync = AWSSyncRefactored()
+        self.api_talker = self.sync.api_talker
+
+    def test_get_syncdata_from_giphouse_normal(self):
+        """Test get_emails_with_teamids function in optimal conditions."""
         self.semester = Semester.objects.create(year=2023, season=Semester.SPRING)
         for i in range(3):
             self.mailing_list = MailingList.objects.create(address="test" + str(i))
@@ -29,13 +34,7 @@ class AWSSyncRefactoredTest(TestCase):
                 id=i, name="test" + str(i), semester=self.semester, slug="test" + str(i)
             )
             self.mailing_list.projects.add(self.project)
-        self.mock_org = mock_organizations()
-        self.mock_org.start()
-        self.sync = AWSSyncRefactored()
-        self.api_talker = self.sync.api_talker
 
-    def test_get_syncdata_from_giphouse_normal(self):
-        """Test get_emails_with_teamids function in optimal conditions."""
         email_id = self.sync.get_syncdata_from_giphouse()
 
         self.assertIsInstance(email_id, list)
@@ -101,6 +100,12 @@ class AWSSyncRefactoredTest(TestCase):
         aws_list = [test2, test3]
         self.assertEquals(self.sync.generate_aws_sync_list(gip_list, aws_list), [test1])
 
+    def test_get_tag_value(self):
+        tags = [{"Key": "project_semester", "Value": "2021"}, {"Key": "project_slug", "Value": "test1"}]
+        self.assertEquals(self.sync.get_tag_value(tags, "project_semester"), "2021")
+        self.assertEquals(self.sync.get_tag_value(tags, "project_slug"), "test1")
+        self.assertEquals(self.sync.get_tag_value(tags, "project_name"), None)
+
     def test_extract_aws_setup(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
         root_id = self.api_talker.list_roots()[0]["Id"]
@@ -136,9 +141,12 @@ class AWSSyncRefactoredTest(TestCase):
             tags=[],
         )
         account_id_1 = response_account_1["CreateAccountStatus"]["AccountId"]
+
         self.api_talker.move_account(account_id=account_id_1, source_parent_id=root_id, dest_parent_id=OU_1_id)
-        self.sync.extract_aws_setup(root_id)
-        self.assertTrue(self.sync.fail)
+
+        with self.assertRaises(Exception) as context:
+            self.sync.extract_aws_setup(root_id)
+        self.assertIn("Found incomplete accounts in AWS", str(context.exception))
 
     def test_get_or_create_course_ou__new(self):
         self.sync.api_talker.create_organization(feature_set="ALL")

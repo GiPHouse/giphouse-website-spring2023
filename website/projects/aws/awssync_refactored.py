@@ -21,7 +21,6 @@ class AWSSyncRefactored:
         self.api_talker = AWSAPITalker()
         self.logger = logging.getLogger("django.aws")
         self.logger.setLevel(logging.DEBUG)
-        self.org_info = None
         self.fail = False
 
     def get_syncdata_from_giphouse(self) -> list[SyncData]:
@@ -52,7 +51,14 @@ class AWSSyncRefactored:
 
         This includes their ID and email address, to be able to put users in the correct AWS organization later.
         """
-        return [x for x in giphouse_data if x not in aws_data]
+        return [project for project in giphouse_data if project not in aws_data]
+
+    def get_tag_value(self, tags: list[dict[str, str]], key: str) -> str:
+        "Returns the value of the tag with the given key, or None if no such tag exists."
+        for tag in tags:
+            if tag["Key"] == key:
+                return tag["Value"]
+        return None
 
     def extract_aws_setup(self, parent_ou_id: str) -> AWSTree:
         """
@@ -71,33 +77,25 @@ class AWSSyncRefactored:
                     member_accounts := [
                         SyncData(
                             account["Email"],
-                            next(
-                                (
-                                    d["Value"]
-                                    for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
-                                    if d["Key"] == "project_slug"
-                                ),
-                                None,
-                            ),
-                            next(
-                                (
-                                    d["Value"]
-                                    for d in self.api_talker.list_tags_for_resource(resource_id=account["Id"])
-                                    if d["Key"] == "project_semester"
-                                ),
-                                None,
-                            ),
+                            self.get_tag_value(tags, "project_slug"),
+                            self.get_tag_value(tags, "project_semester"),
                         )
+                        for account in self.api_talker.list_accounts_for_parent(parent_id=ou["Id"])
+                        for tags in [self.api_talker.list_tags_for_resource(resource_id=account["Id"])]
                     ],
                 )
                 for ou in self.api_talker.list_organizational_units_for_parent(parent_id=parent_ou_id)
-                for account in self.api_talker.list_accounts_for_parent(parent_id=ou["Id"])
             ],
         )
-        for member_account in member_accounts:
-            if not member_account.project_slug or not member_account.project_semester:
-                self.logger.warning(f"Account {member_account.project_email} has no project slug or semester tag.")
-                self.fail = True
+        incomplete_accounts = [
+            account for account in member_accounts if not (account.project_slug and account.project_semester)
+        ]
+
+        if incomplete_accounts:
+            raise Exception(
+                f"Found incomplete accounts in AWS: {incomplete_accounts}. "
+                "Please fix these accounts before running the sync."
+            )
         return aws_tree
 
     def get_or_create_course_ou(self, tree: AWSTree) -> str:
