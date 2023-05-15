@@ -54,7 +54,7 @@ class AWSSyncRefactored:
         return [project for project in giphouse_data if project not in aws_data]
 
     def get_tag_value(self, tags: list[dict[str, str]], key: str) -> str:
-        """Returns the value of the tag with the given key, or None if no such tag exists."""
+        """Return the value of the tag with the given key, or None if no such tag exists."""
         for tag in tags:
             if tag["Key"] == key:
                 return tag["Value"]
