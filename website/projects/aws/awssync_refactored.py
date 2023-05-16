@@ -87,15 +87,14 @@ class AWSSyncRefactored:
                 for ou in self.api_talker.list_organizational_units_for_parent(parent_id=parent_ou_id)
             ],
         )
+
         incomplete_accounts = [
             account for account in member_accounts if not (account.project_slug and account.project_semester)
         ]
 
         if incomplete_accounts:
-            raise Exception(
-                f"Found incomplete accounts in AWS: {incomplete_accounts}. "
-                "Please fix these accounts before running the sync."
-            )
+            raise Exception(f"Found incomplete accounts in AWS: {incomplete_accounts}.")
+
         return aws_tree
 
     def get_or_create_course_ou(self, tree: AWSTree) -> str:
