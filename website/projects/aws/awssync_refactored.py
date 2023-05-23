@@ -25,7 +25,7 @@ class AWSSyncRefactored:
         self.fail = False
 
         self.ACCOUNT_REQUEST_INTERVAL_SECONDS = 2
-        self.ACCOUNT_REQUEST_MAX_ATTEMPTS = 1
+        self.ACCOUNT_REQUEST_MAX_ATTEMPTS = 3
 
         self.accounts_created = 0
         self.accounts_moved = 0
@@ -135,8 +135,6 @@ class AWSSyncRefactored:
         :param destination_ou_id:   The organization's destination OU ID.
         :returns:                   True iff **all** new member accounts were created and moved successfully.
         """
-        overall_success = True
-
         for new_member in new_member_accounts:
             # Create member account
             response = self.api_talker.create_account(
@@ -150,8 +148,6 @@ class AWSSyncRefactored:
             # Repeatedly check status of new member account request.
             request_id = response["CreateAccountStatus"]["Id"]
 
-            can_move = False
-
             for _ in range(self.ACCOUNT_REQUEST_MAX_ATTEMPTS):
                 time.sleep(self.ACCOUNT_REQUEST_INTERVAL_SECONDS)
 
@@ -159,26 +155,30 @@ class AWSSyncRefactored:
                     response_status = self.api_talker.describe_create_account_status(request_id)
                 except ClientError as error:
                     self.logger.debug(error)
-                    overall_success = False
-                    return overall_success
+                    self.logger.debug(f"Failed to get status of account with e-mail: '{new_member.project_email}'.")
+                    break
 
                 request_state = response_status["CreateAccountStatus"]["State"]
                 if request_state == "SUCCEEDED":
-                    can_move = True
                     account_id = response_status["CreateAccountStatus"]["AccountId"]
 
-            self.accounts_created += 1
-            if can_move:
+                    self.accounts_created += 1
+                    try:
+                        self.api_talker.move_account(account_id, root_id, destination_ou_id)
+                        self.accounts_moved += 1
+                    except ClientError as error:
+                        self.logger.debug(error)
+                        self.logger.debug(f"Failed to move account with e-mail: {new_member.project_email}.")
+                    break
 
-                try:
-                    self.api_talker.move_account(account_id, root_id, destination_ou_id)
-                    self.accounts_moved += 1
-                except ClientError as error:
-                    self.logger.debug(error)
-                    overall_success = False
-            else:
-                failure_reason = response_status["CreateAccountStatus"]["FailureReason"]
-                self.logger.debug(failure_reason)
-                overall_success = False
+                elif request_state == "FAILED":
+                    failure_reason = response_status["CreateAccountStatus"]["FailureReason"]
+                    self.logger.debug(
+                        f"Failed to create account with e-mail: {new_member.project_email}. "
+                        f"Failure reason: {failure_reason}"
+                    )
+                    break
 
-        return overall_success
+        accounts_to_create = len(new_member_accounts)
+        success = accounts_to_create == self.accounts_created == self.accounts_moved
+        return success
