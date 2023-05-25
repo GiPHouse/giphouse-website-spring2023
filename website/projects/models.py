@@ -9,7 +9,7 @@ from registrations.models import Employee
 
 
 class AWSPolicy(models.Model):
-    """AWS global policy id and tags submission fields"""
+    """AWS global policy id and tags submission fields."""
 
     class Meta:
         """Meta class for AWSPolicy model."""
