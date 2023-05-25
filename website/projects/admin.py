@@ -15,7 +15,7 @@ from mailing_lists.models import MailingList
 from projects.aws.awssync import AWSSync
 from projects.forms import ProjectAdminForm, RepositoryInlineForm
 from projects.githubsync import GitHubSync
-from projects.models import Client, Project, Repository
+from projects.models import Client, Project, Repository, AWSPolicy
 
 from registrations.models import Employee
 
@@ -27,6 +27,12 @@ class ProjectAdminClientFilter(AutocompleteFilter):
 
     title = "Client"
     field_name = "client"
+
+class AWSPolicyAdminFilter(AutocompleteFilter):
+    """Filter class to filter AWSPolicy objects."""
+
+    title = "AWSPolicy"
+    field_name = "AWSPolicy"
 
 
 class ProjectAdminSemesterFilter(AutocompleteFilter):
@@ -195,5 +201,11 @@ class ProjectAdmin(admin.ModelAdmin):
 @admin.register(Client)
 class ClientAdmin(admin.ModelAdmin):
     """Custom admin for clients."""
+
+    search_fields = ("name",)
+
+@admin.register(AWSPolicy)
+class AWSPolicyAdmin(admin.ModelAdmin):
+    """Custom admin for AWS Policies."""
 
     search_fields = ("name",)
