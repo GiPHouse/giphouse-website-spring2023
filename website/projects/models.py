@@ -10,13 +10,13 @@ from registrations.models import Employee
 
 class AWSPolicy(models.Model):
     """AWS global policy id and tags submission fields"""
-    
+
     class Meta:
         """Meta class for AWSPolicy model."""
 
         verbose_name = "AWS Policy"
         verbose_name_plural = "AWS Policies"
-    
+
     name = models.CharField(max_length=50, unique=False)
     tags = models.TextField()
     is_current_policy = models.BooleanField(default=False, unique=True)
