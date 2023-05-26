@@ -118,7 +118,7 @@ class AWSSyncRefactored:
                 raise
 
     def get_current_policy_id(self) -> str:
-        """Get the currrent policy stored on the giphouse website"""
+        """Get the currrent policy stored on the giphouse website."""
         for policy in AWSPolicy.objects.all():
             if policy.is_current_policy:
                 return policy.policy_id

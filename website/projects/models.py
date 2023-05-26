@@ -26,6 +26,7 @@ class AWSPolicy(models.Model):
     )
 
     def save(self, *args, **kwargs):
+        """Save method for AWSPolicy model."""
         if self.is_current_policy:
             try:
                 temp = AWSPolicy.objects.get(is_current_policy=True)
