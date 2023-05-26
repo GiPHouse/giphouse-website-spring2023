@@ -18,7 +18,8 @@ class AWSPolicy(models.Model):
         verbose_name_plural = "AWS Policies"
 
     policy_id = models.CharField(max_length=50, unique=False, null=False, blank=False)
-    no_permissions_at_root = models.CharField(max_length=50, unique=False, null=False, blank=False)
+    tags_key = models.CharField(max_length=50, unique=False, default="", null=False, blank=False)
+    tags_value = models.CharField(max_length=50, unique=False, default="", null=False, blank=True)
     is_current_policy = models.BooleanField(
         default=False,
         help_text="Attention: When saving this policy with 'is current policy' checked"

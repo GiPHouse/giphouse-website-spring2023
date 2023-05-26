@@ -203,5 +203,5 @@ class ClientAdmin(admin.ModelAdmin):
 class AWSPolicyAdmin(admin.ModelAdmin):
     """Custom admin for AWS Policies."""
 
-    list_display = ["policy_id", "no_permissions_at_root", "is_current_policy"]
+    list_display = ["policy_id", "tags_key", "tags_value", "is_current_policy"]
     search_fields = ("policy_id",)
