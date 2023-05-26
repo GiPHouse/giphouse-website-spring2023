@@ -17,13 +17,28 @@ class AWSPolicy(models.Model):
         verbose_name = "AWS Policy"
         verbose_name_plural = "AWS Policies"
 
-    name = models.CharField(max_length=50, unique=False)
-    tags = models.TextField()
-    is_current_policy = models.BooleanField(default=False, unique=True)
+    policy_id = models.CharField(max_length=50, unique=False, null=False, blank=False)
+    no_permissions_at_root = models.CharField(max_length=50, unique=False, null=False, blank=False)
+    is_current_policy = models.BooleanField(
+        default=False,
+        help_text="Attention: When saving this policy with 'is current policy' checked"
+        + ", all other policies will be set to 'not current'!",
+    )
+
+    def save(self, *args, **kwargs):
+        if self.is_current_policy:
+            try:
+                temp = AWSPolicy.objects.get(is_current_policy=True)
+                if self != temp:
+                    temp.is_current_policy = False
+                    temp.save()
+            except AWSPolicy.DoesNotExist:
+                pass
+        super(AWSPolicy, self).save(*args, **kwargs)
 
     def __str__(self):
         """Return policy name."""
-        return f"{self.name}"
+        return f"{self.policy_id}"
 
 
 class Client(models.Model):
