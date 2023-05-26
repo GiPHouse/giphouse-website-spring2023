@@ -28,17 +28,11 @@ class AWSPolicy(models.Model):
     def save(self, *args, **kwargs):
         """Save method for AWSPolicy model."""
         if self.is_current_policy:
-            try:
-                temp = AWSPolicy.objects.get(is_current_policy=True)
-                if self != temp:
-                    temp.is_current_policy = False
-                    temp.save()
-            except AWSPolicy.DoesNotExist:
-                pass
+            AWSPolicy.objects.all().update(**{"is_current_policy": False})
         super(AWSPolicy, self).save(*args, **kwargs)
 
     def __str__(self):
-        """Return policy name."""
+        """Return policy id."""
         return f"{self.policy_id}"
 
 

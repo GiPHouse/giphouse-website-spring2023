@@ -123,7 +123,12 @@ class AWSPolicySaveTest(TestCase):
         self.assertFalse(existing_policy.is_current_policy)
         self.assertTrue(new_policy.is_current_policy)
 
-    def test_save_method_without_existing_current_policy(self):
+    def test_save_method_without_existing_current_policy_false(self):
         policy = AWSPolicy(is_current_policy=False)
         policy.save()
         self.assertFalse(policy.is_current_policy)
+
+    def test_save_method_without_existing_current_policy_true(self):
+        policy = AWSPolicy(is_current_policy=True)
+        policy.save()
+        self.assertTrue(policy.is_current_policy)
