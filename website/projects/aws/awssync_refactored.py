@@ -10,7 +10,7 @@ from mailing_lists.models import MailingList
 
 from projects.aws.awsapitalker import AWSAPITalker
 from projects.aws.awssync_structs import AWSTree, Iteration, SyncData
-from projects.models import Project
+from projects.models import AWSPolicy, Project
 
 
 class AWSSyncRefactored:
@@ -116,3 +116,10 @@ class AWSSyncRefactored:
         except ClientError as error:
             if error.response["Error"]["Code"] != "DuplicatePolicyAttachmentException":
                 raise
+
+    def get_current_policy_id(self) -> str:
+        """Get the currrent policy stored on the giphouse website"""
+        for policy in AWSPolicy.objects.all():
+            if policy.is_current_policy:
+                return policy.policy_id
+        raise Exception("No current policy found")

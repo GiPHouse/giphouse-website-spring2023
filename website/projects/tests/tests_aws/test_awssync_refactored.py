@@ -15,7 +15,7 @@ from mailing_lists.models import MailingList
 
 from projects.aws.awssync_refactored import AWSSyncRefactored
 from projects.aws.awssync_structs import AWSTree, Iteration, SyncData
-from projects.models import Project
+from projects.models import AWSPolicy, Project
 
 
 @mock_organizations
@@ -211,3 +211,20 @@ class AWSSyncRefactoredTest(TestCase):
 
     def test_attach_policy__reraised_exception(self):
         self.assertRaises(ClientError, self.sync.attach_policy, "r-123", "p-123")
+
+    def test_get_current_policy_id(self):
+        self.policy_id1 = AWSPolicy.objects.create(
+            policy_id="Test-Policy1", no_permissions_at_root="Test-Policy-Id1", is_current_policy=False
+        )
+        self.policy_id2 = AWSPolicy.objects.create(
+            policy_id="Test-Policy2", no_permissions_at_root="Test-Policy-Id2", is_current_policy=True
+        )
+        get_policy_id = self.sync.get_current_policy_id()
+        self.assertIsInstance(get_policy_id, str)
+        self.assertEqual(get_policy_id, self.policy_id2.policy_id)
+
+    def test_get_current_policy__no_current_policy_id(self):
+        self.policy_id1 = AWSPolicy.objects.create(
+            policy_id="Test-Policy1", no_permissions_at_root="Test-Policy-Id1", is_current_policy=False
+        )
+        self.assertRaises(Exception, self.sync.get_current_policy_id)
