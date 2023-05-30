@@ -151,10 +151,10 @@ Synchronization can only be initialized via actions on specific sets of objects 
 Synchronization currently does not regard the role of directors of GipHouse. This needs to be configured manually. Note that it is however not possible to add directors manually to a team on GitHub, since they will be removed after each sync.
 
 #### AWS Synchronization
-The projects module provides synchronisation functionality with AWS Organizations using the official [boto3 Python AWS SDK](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html).
+The projects module provides synchronisation functionality with [AWS Organizations](https://aws.amazon.com/organizations/) using the official [boto3 Python AWS SDK](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html).
 The AWS synchronisation process only applies to the current semester and is one-directional (from GiPHouse to AWS, but not vica versa).
 
-Each project in the current semester with a team mailing list gets its own AWS member account that is part of GiPHouse's [AWS organization](https://aws.amazon.com/organizations/).
+Each project in the current semester with a team mailing list gets its own AWS member account that is part of GiPHouse's AWS organization.
 Since all AWS member accounts have isolated environments, each team is able to configure their own AWS environment as desired.
 The AWS member accounts are restricted in their abilities using a pre-configured [SCP policy](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html) that is applied to the course semester Organizational Unit (OU) where all team member accounts reside.
 For example, the SCP policy can be set such that only (certain types of) [EC2](https://aws.amazon.com/ec2/) instances may be launched.
@@ -162,8 +162,7 @@ Such specific configuration details can be found under the [Deployment](#deploym
 
 The AWS synchronization process can be initiated in the Django admin interface under Projects by pressing the large `SYNCHRONIZE PROJECTS OF THE CURRENT SEMESTER TO AWS` at the top-right and roughly goes through the following stages:
 
-1. **Create AWS organization (optional)**
-2. **Preliminary checks**
+1. Preliminary checks
     - Pipeline preconditions
         1. Locatable boto3 credentials and successful AWS API connection
         2. Check allowed AWS API actions based on IAM policy of caller
@@ -173,12 +172,14 @@ The AWS synchronization process can be initiated in the Django admin interface u
     - Edge case checks
         1. All AWS member accounts in correct course semester OU based on tags
         2. No duplicate course semester OU names
-2. **Create current course semester OU (optional)**
-3. **Attach SCP policy to current course semester OU**
-4. **Synchronization**
+2. Create current course semester OU (optional)
+3. Attach SCP policy to current course semester OU
+4. Synchronization
     - Determine new accounts to be invited based on AWS and GiPHouse data.
-5. **Create new AWS member accounts in AWS organization**
-6. **Move new AWS members accounts to course semester OU**
+5. Create new AWS member accounts in AWS organization
+6. Move new AWS member accounts to course semester OU
+
+![pipeline-flowchart](resources/pipeline-flowchart.drawio.png)
 
 After the synchronization process has finished, success or failure is indicated by a green or red response box respectively.
 Verbose details for each synchronization run is logged using the `logging` module and can be accessed in the backend, for example to inspect causes of failed runs.
