@@ -219,9 +219,9 @@ class AWSSyncRefactoredTest(TestCase):
         self.policy_id2 = AWSPolicy.objects.create(
             policy_id="Test-Policy2", tags_key="Test-Policy-Id2", is_current_policy=True
         )
-        get_policy_id = self.sync.get_current_policy_id()
-        self.assertIsInstance(get_policy_id, str)
-        self.assertEqual(get_policy_id, self.policy_id2.policy_id)
+        current_policy_id = self.sync.get_current_policy_id()
+        self.assertIsInstance(current_policy_id, str)
+        self.assertEqual(current_policy_id, self.policy_id2.policy_id)
 
     def test_get_current_policy__no_current_policy_id(self):
         self.policy_id1 = AWSPolicy.objects.create(
