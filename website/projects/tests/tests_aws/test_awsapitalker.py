@@ -200,8 +200,13 @@ class AWSAPITalkerTest(TestCase):
 
         tag_key = "Test Key"
         tag_value = "Test Value"
-        account = self.api_talker.create_account("test@example.com", "Test", [{"Key": tag_key, "Value": tag_value}])
+        tag = {"Key": tag_key, "Value": tag_value}
+        account = self.api_talker.create_account("test@example.com", "Test", [tag])
         account_id = account["CreateAccountStatus"]["AccountId"]
+
+        received_tags = self.api_talker.org_client.list_tags_for_resource(ResourceId=account_id)["Tags"]
+        self.assertIn(tag, received_tags)
+
         self.api_talker.untag_resource(account_id, [tag_key])
 
         received_tags = self.api_talker.org_client.list_tags_for_resource(ResourceId=account_id)["Tags"]

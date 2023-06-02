@@ -201,7 +201,10 @@ class AWSSync:
                     break
 
         self.accounts_to_create = len(new_member_accounts)
+        self.logger.debug(f"Accounts created: {self.accounts_created}/{self.accounts_to_create}")
+        self.logger.debug(f"Accounts moved: {self.accounts_moved}/{self.accounts_to_create}")
         success = self.accounts_to_create == self.accounts_created == self.accounts_moved
+
         return success
 
     def pipeline(self) -> bool:
@@ -210,9 +213,9 @@ class AWSSync:
 
         :return: True iff all pipeline stages successfully executed.
         """
-        root_id = self.api_talker.list_roots()[0]["Id"]
         self.checker.pipeline_preconditions(api_permissions)
 
+        root_id = self.api_talker.list_roots()[0]["Id"]
         aws_tree = self.extract_aws_setup(root_id)
         self.checker.check_members_in_correct_iteration(aws_tree)
         self.checker.check_double_iteration_names(aws_tree)
@@ -241,9 +244,6 @@ class AWSSync:
                 messages.success(request, self.SUCCESS_MSG)
             else:
                 messages.warning(request, self.FAIL_MSG)
-
-            self.logger.debug(f"Accounts created: {self.accounts_created}/{self.accounts_to_create}")
-            self.logger.debug(f"Accounts moved: {self.accounts_moved}/{self.accounts_to_create}")
         except ClientError as api_error:
             messages.error(request, self.API_ERROR_MSG)
             self.logger.error(api_error)
