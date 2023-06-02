@@ -24,9 +24,16 @@ from registrations.models import Employee
 User: Employee = get_user_model()
 
 
+class QuietAWSSync(AWSSync):
+    def __init__(self):
+        super().__init__()
+        self.logger = MagicMock()
+
+
 @mock_organizations
 @mock_sts
 @mock_iam
+@patch("projects.admin.AWSSync", new=QuietAWSSync)
 class AWSSyncTest(TestCase):
     def setUp(self):
         """Set up testing environment."""
@@ -424,7 +431,6 @@ class AWSSyncTest(TestCase):
 
     def test_synchronise__sync_error(self):
         sync_error = Exception("Synchronization Error")
-        self.sync.api_talker.create_organization(feature_set="ALL")
 
         with patch("projects.aws.awssync.AWSSync.pipeline", side_effect=sync_error):
             response = self.client.get(reverse("admin:synchronise_to_aws"), follow=True)
