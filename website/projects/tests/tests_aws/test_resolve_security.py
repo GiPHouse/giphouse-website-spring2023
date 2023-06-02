@@ -1,40 +1,33 @@
 import unittest
-from unittest.mock import MagicMock, patch 
-import boto3
-from projects.aws.resolve_security import MyClass
+from unittest.mock import MagicMock
+from projects.aws.resolve_security import ResolveSecurity
 
+class ResolveSecurityTestCase(unittest.TestCase):
 
-class MyClassTestCase(unittest.TestCase):
-    @patch('boto3.client')
-    def test_add_and_remove_tags(self, mock_client):
+    def setUp(self):
+        self.your_class = ResolveSecurity()
+        self.new_member_accounts = [...]  #List of SyncData objects
+        self.root_id = "your_root_id"
+        self.destination_ou_id = "your_destination_ou_id"
+
+    def test_pipeline_create_and_move_accounts(self):
+
+        self.your_class.pipeline_create_account = MagicMock(return_value=(True, "account_id"))
         client_mock = MagicMock()
-        client_mock.tag_resource.return_value = {}
-        client_mock.list_roots.return_value = {"Roots": [{"Id": "root_id"}]}
-        client_mock.move_account.return_value = {}
-        client_mock.untag_resource.return_value = {}
+        client_mock.move_account = MagicMock()
+        client_mock.untag_resource = MagicMock()
+        self.your_class.boto3.client = MagicMock(return_value=client_mock)
 
-        mock_client.return_value = client_mock
-
-        my_object = MyClass()
-
-        account_id = "your_account_id"
-        destination_ou_id = "your_destination_ou_id"
-
-        result = my_object.add_and_remove_tags(account_id, destination_ou_id)
-
-        client_mock.tag_resource.assert_called_once_with(
-            ResourceId=account_id, Tags=[{"Key": "CourseIteration", "Value": "Temporary"}]
-        )
-        client_mock.list_roots.assert_called_once_with()
-        client_mock.move_account.assert_called_once_with(
-            AccountId=account_id, SourceParentId="root_id", DestinationParentId=destination_ou_id
-        )
-        client_mock.untag_resource.assert_called_once_with(
-            ResourceId=account_id, TagKeys=["CourseIteration"]
+        result = self.your_class.pipeline_create_and_move_accounts(
+            self.new_member_accounts, self.root_id, self.destination_ou_id
         )
 
-        self.assertTrue(result)
-
+        self.assertTrue(result)  #Overall success should be True
+        self.assertEqual(self.your_class.pipeline_create_account.call_count, len(self.new_member_accounts))
+        client_mock.move_account.assert_called_with(
+            AccountId="account_id", SourceParentId=self.root_id, DestinationParentId=self.destination_ou_id
+        )
+        client_mock.untag_resource.assert_called_with(ResourceId="account_id", TagKeys=["course_iteration_tag"])
 
 if __name__ == "__main__":
     unittest.main()
