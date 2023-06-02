@@ -410,9 +410,11 @@ class AWSSync:
                 Email=sync_data.project_email,
                 AccountName=sync_data.project_slug,
                 IamUserAccessToBilling="DENY",
+                # Add the "course_iteration_tag" to the Tags list when creating the account
                 Tags=[
                     {"Key": "project_slug", "Value": sync_data.project_slug},
                     {"Key": "project_semester", "Value": sync_data.project_semester},
+                    {"Key": "course_iteration_tag", "Value": "no-rights"},
                 ],
             )
         except ClientError as error:
@@ -459,6 +461,8 @@ class AWSSync:
                     client.move_account(
                         AccountId=account_id, SourceParentId=root_id, DestinationParentId=destination_ou_id
                     )
+                    # Remove the "course_iteration_tag" from the account after moving it
+                    client.untag_resource(ResourceId=account_id, TagKeys=["course_iteration_tag"])
                 except ClientError as error:
                     self.logger.debug(error)
                     overall_success = False
