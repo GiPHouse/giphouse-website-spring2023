@@ -44,23 +44,20 @@ class AWSSync:
 
     def get_syncdata_from_giphouse(self) -> list[SyncData]:
         """
-        Create a list of SyncData struct containing email, slug and semester.
+        Create a list of SyncData struct containing email, slug.
 
-        Slug and semester combined are together an uniqueness constraint.
-
-        :return: list of SyncData structs with email, slug and semester
+        :return: list of SyncData structs with email, slug
         """
         sync_data_list = []
         current_semester = Semester.objects.get_or_create_current_semester()
 
         for project in Project.objects.filter(mailinglist__isnull=False, semester=current_semester).values(
-            "slug", "semester", "mailinglist"
+            "slug", "mailinglist"
         ):
             project_slug = project["slug"]
-            project_semester = str(Semester.objects.get(pk=project["semester"]))
             project_email = MailingList.objects.get(pk=project["mailinglist"]).email_address
 
-            sync_data = SyncData(project_email, project_slug, project_semester)
+            sync_data = SyncData(project_email, project_slug)
             sync_data_list.append(sync_data)
         return sync_data_list
 
@@ -71,13 +68,6 @@ class AWSSync:
         This includes their ID and email address, to be able to put users in the correct AWS organization later.
         """
         return [project for project in giphouse_data if project not in aws_data]
-
-    def get_tag_value(self, tags: list[dict[str, str]], key: str) -> str:
-        """Return the value of the tag with the given key, or None if no such tag exists."""
-        for tag in tags:
-            if tag["Key"] == key:
-                return tag["Value"]
-        return None
 
     def extract_aws_setup(self, parent_ou_id: str) -> AWSTree:
         """
@@ -95,25 +85,14 @@ class AWSSync:
                     ou["Name"],
                     ou["Id"],
                     member_accounts := [
-                        SyncData(
-                            account["Email"],
-                            self.get_tag_value(tags, "project_slug"),
-                            self.get_tag_value(tags, "project_semester"),
-                        )
+                        SyncData(account["Email"], account["Name"])
                         for account in self.api_talker.list_accounts_for_parent(parent_id=ou["Id"])
-                        for tags in [self.api_talker.list_tags_for_resource(resource_id=account["Id"])]
                     ],
                 )
                 for ou in self.api_talker.list_organizational_units_for_parent(parent_id=parent_ou_id)
             ],
         )
 
-        incomplete_accounts = [
-            account for account in member_accounts if not (account.project_slug and account.project_semester)
-        ]
-
-        if incomplete_accounts:
-            raise Exception(f"Found incomplete accounts in AWS: {incomplete_accounts}.")
         self.logger.info(f"Extracted {len(member_accounts)} AWS accounts with grandparent OU ID '{parent_ou_id}'.")
 
         return aws_tree
@@ -162,14 +141,7 @@ class AWSSync:
         :returns:                   True iff **all** new member accounts were created and moved successfully.
         """
         for new_member in new_member_accounts:
-            response = self.api_talker.create_account(
-                new_member.project_email,
-                new_member.project_slug,
-                [
-                    {"Key": "project_slug", "Value": new_member.project_slug},
-                    {"Key": "project_semester", "Value": new_member.project_semester},
-                ],
-            )
+            response = self.api_talker.create_account(new_member.project_email, new_member.project_slug)
             request_id = response["CreateAccountStatus"]["Id"]
 
             for _ in range(self.ACCOUNT_REQUEST_MAX_ATTEMPTS):
@@ -223,7 +195,6 @@ class AWSSync:
 
         root_id = self.api_talker.list_roots()[0]["Id"]
         aws_tree = self.extract_aws_setup(root_id)
-        self.checker.check_members_in_correct_iteration(aws_tree)
         self.checker.check_double_iteration_names(aws_tree)
 
         aws_sync_data = aws_tree.awstree_to_syncdata_list()
