@@ -48,6 +48,9 @@ class AWSSyncTest(TestCase):
         self.sync.logger = self.logger
         self.sync.checker.logger = self.logger
 
+        self.sync.ACCOUNT_REQUEST_INTERVAL_SECONDS = 0.1
+        self.sync.ACCOUNT_REQUEST_MAX_ATTEMPTS = 3
+
     def setup_policy(self):
         policy_name = "DenyAll"
         policy_description = "Deny all access."
