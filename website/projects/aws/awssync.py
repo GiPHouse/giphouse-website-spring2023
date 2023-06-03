@@ -114,6 +114,7 @@ class AWSSync:
 
         if incomplete_accounts:
             raise Exception(f"Found incomplete accounts in AWS: {incomplete_accounts}.")
+        self.logger.info(f"Extracted {len(member_accounts)} AWS accounts with grandparent OU ID '{parent_ou_id}'.")
 
         return aws_tree
 
@@ -126,6 +127,9 @@ class AWSSync:
         if not course_ou_id:
             course_ou = self.api_talker.create_organizational_unit(root_id, course_ou_name)
             course_ou_id = course_ou["OrganizationalUnit"]["Id"]
+            self.logger.info(f"Created semester OU '{course_ou_name}' with ID '/{root_id}/{course_ou_id}'.")
+        else:
+            self.logger.info(f"Semester OU '{course_ou_name}' exists with ID '/{root_id}/{course_ou_id}'.")
 
         return course_ou_id
 
@@ -133,9 +137,11 @@ class AWSSync:
         """Attach policy to target resource."""
         try:
             self.api_talker.attach_policy(target_id, policy_id)
+            self.logger.info(f"Attached policy with ID '{policy_id}' to target ID '{target_id}'.")
         except ClientError as error:
             if error.response["Error"]["Code"] != "DuplicatePolicyAttachmentException":
                 raise
+            self.logger.info(f"Policy with ID '{policy_id}' is already attached to target ID '{target_id}'.")
 
     def get_current_policy_id(self) -> str:
         """Get the currrent policy stored on the GiPHouse website."""
@@ -156,7 +162,6 @@ class AWSSync:
         :returns:                   True iff **all** new member accounts were created and moved successfully.
         """
         for new_member in new_member_accounts:
-            # Create member account
             response = self.api_talker.create_account(
                 new_member.project_email,
                 new_member.project_slug,
@@ -165,7 +170,6 @@ class AWSSync:
                     {"Key": "project_semester", "Value": new_member.project_semester},
                 ],
             )
-            # Repeatedly check status of new member account request.
             request_id = response["CreateAccountStatus"]["Id"]
 
             for _ in range(self.ACCOUNT_REQUEST_MAX_ATTEMPTS):
@@ -182,13 +186,15 @@ class AWSSync:
 
                 if request_state == "SUCCEEDED":
                     account_id = response_status["CreateAccountStatus"]["AccountId"]
-
+                    self.logger.info(f"Created member account '{new_member.project_email}' with ID '{account_id}'.")
                     self.accounts_created += 1
+
                     try:
                         self.api_talker.move_account(account_id, root_id, destination_ou_id)
                         self.accounts_moved += 1
+                        self.logger.info(f"Moved new member account '{new_member.project_email}'.")
                     except ClientError as error:
-                        self.logger.debug(f"Failed to move account with e-mail: {new_member.project_email}.")
+                        self.logger.debug(f"Failed to move new member account '{new_member.project_email}'.")
                         self.logger.debug(error)
                     break
 
@@ -224,9 +230,8 @@ class AWSSync:
         giphouse_sync_data = self.get_syncdata_from_giphouse()
         merged_sync_data = self.generate_aws_sync_list(giphouse_sync_data, aws_sync_data)
 
-        ou_id = self.get_or_create_course_ou(aws_tree)
-
         policy_id = self.get_current_policy_id()
+        ou_id = self.get_or_create_course_ou(aws_tree)
         self.attach_policy(ou_id, policy_id)
 
         return self.create_and_move_accounts(merged_sync_data, root_id, ou_id)
