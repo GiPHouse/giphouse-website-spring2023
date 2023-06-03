@@ -76,7 +76,6 @@ class AWSSync:
         :param parent_ou_id: The ID of the parent OU.
         :return: A AWSTree object containing all the children of the parent OU.
         """
-        member_accounts = []
         aws_tree = AWSTree(
             "root",
             parent_ou_id,
@@ -84,7 +83,7 @@ class AWSSync:
                 Iteration(
                     ou["Name"],
                     ou["Id"],
-                    member_accounts := [
+                    [
                         SyncData(account["Email"], account["Name"])
                         for account in self.api_talker.list_accounts_for_parent(parent_id=ou["Id"])
                     ],
@@ -92,8 +91,6 @@ class AWSSync:
                 for ou in self.api_talker.list_organizational_units_for_parent(parent_id=parent_ou_id)
             ],
         )
-
-        self.logger.info(f"Extracted {len(member_accounts)} AWS accounts with grandparent OU ID '{parent_ou_id}'.")
 
         return aws_tree
 
@@ -179,8 +176,8 @@ class AWSSync:
                     break
 
         self.accounts_to_create = len(new_member_accounts)
-        self.logger.debug(f"Accounts created: {self.accounts_created}/{self.accounts_to_create}")
-        self.logger.debug(f"Accounts moved: {self.accounts_moved}/{self.accounts_to_create}")
+        self.logger.info(f"Accounts created: {self.accounts_created}/{self.accounts_to_create}")
+        self.logger.info(f"Accounts moved:   {self.accounts_moved}/{self.accounts_to_create}")
         success = self.accounts_to_create == self.accounts_created == self.accounts_moved
 
         return success
