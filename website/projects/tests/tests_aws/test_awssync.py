@@ -236,11 +236,27 @@ class AWSSyncTest(TestCase):
         self.assertIsInstance(current_policy_id, str)
         self.assertEqual(current_policy_id, self.policy_id2.policy_id)
 
-    def test_get_current_policy__no_current_policy_id(self):
+    def test_get_current_policy__no_current_policy(self):
         self.policy_id1 = AWSPolicy.objects.create(
             policy_id="Test-Policy1", tags_key="Test-Policy-Id1", is_current_policy=False
         )
         self.assertRaises(Exception, self.sync.get_current_policy_id)
+        self.assertRaises(Exception, self.sync.get_current_policy_tag)
+
+    def test_get_current_policy_tag__has_key_and_value(self):
+        test_key = "not-moved"
+        test_val = "pending-move"
+        self.aws_policy = AWSPolicy.objects.create(
+            policy_id="p-123456", tags_key=test_key, tags_value=test_val, is_current_policy=True
+        )
+        current_policy_tag = self.sync.get_current_policy_tag()
+        self.assertEqual(current_policy_tag, {"Key": test_key, "Value": test_val})
+
+    def test_get_current_policy_tag__has_key_only(self):
+        test_key = "not-moved"
+        self.aws_policy = AWSPolicy.objects.create(policy_id="p-123456", tags_key=test_key, is_current_policy=True)
+        current_policy_tag = self.sync.get_current_policy_tag()
+        self.assertEqual(current_policy_tag, {"Key": test_key})
 
     def test_create_move_account(self):
         self.sync.api_talker.create_organization(feature_set="ALL")

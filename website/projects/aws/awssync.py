@@ -120,11 +120,21 @@ class AWSSync:
             self.logger.info(f"Policy with ID '{policy_id}' is already attached to target ID '{target_id}'.")
 
     def get_current_policy_id(self) -> str:
-        """Get the currrent policy stored on the GiPHouse website."""
+        """Get the manually configured current policy ID set in the Django admin panel."""
         for policy in AWSPolicy.objects.all():
             if policy.is_current_policy:
                 return policy.policy_id
         raise Exception("No current policy found")
+
+    def get_current_policy_tag(self) -> dict:
+        """Get the manually configured current policy tag set in the Django admin panel."""
+        for policy in AWSPolicy.objects.all():
+            if policy.is_current_policy:
+                tag = {"Key": policy.tags_key}
+                if policy.tags_value:
+                    tag["Value"] = policy.tags_value
+                return tag
+        raise Exception("No current policy tag found")
 
     def create_and_move_accounts(
         self, new_member_accounts: list[SyncData], root_id: str, destination_ou_id: str
