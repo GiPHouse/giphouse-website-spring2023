@@ -225,6 +225,12 @@ class AWSSyncTest(TestCase):
     def test_attach_policy__reraised_exception(self):
         self.assertRaises(ClientError, self.sync.attach_policy, "r-123", "p-123")
 
+    def test_get_current_base_ou_id(self):
+        test_base_ou_id = "o-123456"
+        self.aws_policy = AWSPolicy.objects.create(base_ou_id=test_base_ou_id, is_current_policy=True)
+        current_base_ou_id = self.sync.get_current_base_ou_id()
+        self.assertEqual(current_base_ou_id, test_base_ou_id)
+
     def test_get_current_policy_id(self):
         self.policy_id1 = AWSPolicy.objects.create(
             policy_id="Test-Policy1", tags_key="Test-Policy-Id1", is_current_policy=False
@@ -240,6 +246,7 @@ class AWSSyncTest(TestCase):
         self.policy_id1 = AWSPolicy.objects.create(
             policy_id="Test-Policy1", tags_key="Test-Policy-Id1", is_current_policy=False
         )
+        self.assertRaises(Exception, self.sync.get_current_base_ou_id)
         self.assertRaises(Exception, self.sync.get_current_policy_id)
         self.assertRaises(Exception, self.sync.get_current_policy_tag)
 
@@ -353,9 +360,11 @@ class AWSSyncTest(TestCase):
         )
         self.sync.api_talker.create_organization(feature_set="ALL")
         self.setup_policy()
-        pipeline_success = self.sync.pipeline()
 
         root_id = self.sync.api_talker.list_roots()[0]["Id"]
+        with patch("projects.aws.awssync.AWSSync.get_current_base_ou_id", return_value=root_id):
+            pipeline_success = self.sync.pipeline()
+
         root_ous = self.sync.api_talker.list_organizational_units_for_parent(root_id)
         root_ou_names = [ou["Name"] for ou in root_ous]
 
@@ -389,7 +398,9 @@ class AWSSyncTest(TestCase):
             ]
         )
 
-        pipeline_success = self.sync.pipeline()
+        with patch("projects.aws.awssync.AWSSync.get_current_base_ou_id", return_value=root_id):
+            pipeline_success = self.sync.pipeline()
+
         course_accounts = self.sync.api_talker.list_accounts_for_parent(course_ou_id)
         course_account_emails = [account["Email"] for account in course_accounts]
 

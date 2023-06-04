@@ -13,7 +13,6 @@ from mailing_lists.models import MailingList
 
 from projects.aws.awsapitalker import AWSAPITalker
 from projects.aws.awssync_checks import Checks
-from projects.aws.awssync_checks_permissions import api_permissions
 from projects.aws.awssync_structs import AWSTree, Iteration, SyncData
 from projects.models import AWSPolicy, Project
 
@@ -115,6 +114,13 @@ class AWSSync:
                 raise
             self.logger.info(f"Policy with ID '{policy_id}' is already attached to target ID '{target_id}'.")
 
+    def get_current_base_ou_id(self) -> str:
+        """Get the manually configured current base OU ID set in the Django admin panel."""
+        for policy in AWSPolicy.objects.all():
+            if policy.is_current_policy:
+                return policy.base_ou_id
+        raise Exception("No current base OU ID found")
+
     def get_current_policy_id(self) -> str:
         """Get the manually configured current policy ID set in the Django admin panel."""
         for policy in AWSPolicy.objects.all():
@@ -197,21 +203,21 @@ class AWSSync:
 
         :return: True iff all pipeline stages successfully executed.
         """
-        self.checker.pipeline_preconditions(api_permissions)
-
+        base_ou_id = self.get_current_base_ou_id()
+        policy_id = self.get_current_policy_id()
         root_id = self.api_talker.list_roots()[0]["Id"]
-        aws_tree = self.extract_aws_setup(root_id)
+
+        aws_tree = self.extract_aws_setup(base_ou_id)
         self.checker.check_double_iteration_names(aws_tree)
 
         aws_sync_data = aws_tree.awstree_to_syncdata_list()
         giphouse_sync_data = self.get_syncdata_from_giphouse()
         merged_sync_data = self.generate_aws_sync_list(giphouse_sync_data, aws_sync_data)
 
-        policy_id = self.get_current_policy_id()
-        ou_id = self.get_or_create_course_ou(aws_tree)
-        self.attach_policy(ou_id, policy_id)
+        course_ou_id = self.get_or_create_course_ou(aws_tree)
+        self.attach_policy(course_ou_id, policy_id)
 
-        return self.create_and_move_accounts(merged_sync_data, root_id, ou_id)
+        return self.create_and_move_accounts(merged_sync_data, root_id, course_ou_id)
 
     def synchronise(self, request):
         """
