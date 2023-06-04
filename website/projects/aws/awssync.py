@@ -31,10 +31,6 @@ class AWSSync:
         self.ACCOUNT_REQUEST_INTERVAL_SECONDS = 5
         self.ACCOUNT_REQUEST_MAX_ATTEMPTS = 3
 
-        self.accounts_created = 0
-        self.accounts_moved = 0
-        self.accounts_to_create = 0
-
         self.SUCCESS_MSG = "Successfully synchronized all projects to AWS."
         self.FAIL_MSG = "Not all accounts were created and moved successfully. Check the console for more information."
         self.API_ERROR_MSG = "An error occurred while calling the AWS API. Check the console for more information."
@@ -147,6 +143,9 @@ class AWSSync:
         :param destination_ou_id:   The organization's destination OU ID.
         :returns:                   True iff **all** new member accounts were created and moved successfully.
         """
+        accounts_created = 0
+        accounts_moved = 0
+
         for new_member in new_member_accounts:
             response = self.api_talker.create_account(new_member.project_email, new_member.project_slug)
             request_id = response["CreateAccountStatus"]["Id"]
@@ -166,11 +165,11 @@ class AWSSync:
                 if request_state == "SUCCEEDED":
                     account_id = response_status["CreateAccountStatus"]["AccountId"]
                     self.logger.info(f"Created member account '{new_member.project_email}' with ID '{account_id}'.")
-                    self.accounts_created += 1
+                    accounts_created += 1
 
                     try:
                         self.api_talker.move_account(account_id, root_id, destination_ou_id)
-                        self.accounts_moved += 1
+                        accounts_moved += 1
                         self.logger.info(f"Moved new member account '{new_member.project_email}'.")
                     except ClientError as error:
                         self.logger.debug(f"Failed to move new member account '{new_member.project_email}'.")
@@ -185,10 +184,10 @@ class AWSSync:
                     )
                     break
 
-        self.accounts_to_create = len(new_member_accounts)
-        self.logger.info(f"Accounts created: {self.accounts_created}/{self.accounts_to_create}")
-        self.logger.info(f"Accounts moved:   {self.accounts_moved}/{self.accounts_to_create}")
-        success = self.accounts_to_create == self.accounts_created == self.accounts_moved
+        accounts_to_create = len(new_member_accounts)
+        self.logger.info(f"Accounts created: {accounts_created}/{accounts_to_create}")
+        self.logger.info(f"Accounts moved:   {accounts_moved}/{accounts_to_create}")
+        success = accounts_to_create == accounts_created == accounts_moved
 
         return success
 
