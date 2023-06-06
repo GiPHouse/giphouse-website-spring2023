@@ -160,3 +160,21 @@ class AWSAPITalker:
         page_iterator = paginator.paginate()
 
         return self.combine_pages(page_iterator, "Roots")
+
+    def describe_create_account_status(self, create_account_request_id: str) -> dict:
+        """
+        Describe the status of the given account creation request.
+
+        :param create_account_request_id: ID of the account creation request to be described.
+        :return: dictionary containing account creation status information.
+        """
+        return self.org_client.describe_create_account_status(CreateAccountRequestId=create_account_request_id)
+
+    def untag_resource(self, resource_id: str, tag_keys: list[str]):
+        """
+        Remove tags with specified keys from the resource with the specified ID.
+
+        :param resource_id: the resource from which tags should be removed.
+        :param tag_keys: the keys of the tags to be removed.
+        """
+        return self.org_client.untag_resource(ResourceId=resource_id, TagKeys=tag_keys)
