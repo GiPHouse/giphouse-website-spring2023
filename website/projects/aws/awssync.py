@@ -133,8 +133,7 @@ class AWSSync:
         for policy in AWSPolicy.objects.all():
             if policy.is_current_policy:
                 tag = {"Key": policy.tags_key}
-                if policy.tags_value:
-                    tag["Value"] = policy.tags_value
+                tag["Value"] = policy.tags_value if policy.tags_value else ""
                 return tag
         raise Exception("No current policy tag found")
 
@@ -154,9 +153,7 @@ class AWSSync:
 
         for new_member in new_member_accounts:
             response = self.api_talker.create_account(
-                    new_member.project_email, 
-                    new_member.project_slug,
-                    [{"Key": "course_iteration_tag", "Value": "no-rights"}]
+                new_member.project_email, new_member.project_slug, [self.get_current_policy_tag()]
             )
             request_id = response["CreateAccountStatus"]["Id"]
 

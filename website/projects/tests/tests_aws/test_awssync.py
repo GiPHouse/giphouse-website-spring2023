@@ -263,7 +263,7 @@ class AWSSyncTest(TestCase):
         test_key = "not-moved"
         self.aws_policy = AWSPolicy.objects.create(policy_id="p-123456", tags_key=test_key, is_current_policy=True)
         current_policy_tag = self.sync.get_current_policy_tag()
-        self.assertEqual(current_policy_tag, {"Key": test_key})
+        self.assertEqual(current_policy_tag, {"Key": test_key, "Value": ""})
 
     def test_create_move_account(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
@@ -276,6 +276,7 @@ class AWSSyncTest(TestCase):
             SyncData("bob@giphouse.nl", "bobs-project"),
         ]
 
+        self.setup_policy()
         success = self.sync.create_and_move_accounts(members, root_id, dest_ou_id)
         self.assertTrue(success)
 
@@ -290,6 +291,7 @@ class AWSSyncTest(TestCase):
             SyncData("bob@giphouse.nl", "bobs-project"),
         ]
 
+        self.setup_policy()
         with patch.object(self.sync.api_talker, "move_account", side_effect=ClientError({}, "move_account")):
             success = self.sync.create_and_move_accounts(members, root_id, dest_ou_id)
 
@@ -306,6 +308,7 @@ class AWSSyncTest(TestCase):
             SyncData("bob@giphouse.nl", "bobs-project"),
         ]
 
+        self.setup_policy()
         with patch.object(
             self.sync.api_talker,
             "describe_create_account_status",
@@ -326,6 +329,7 @@ class AWSSyncTest(TestCase):
             SyncData("alice@giphouse.nl", "bobs-project"),
         ]
 
+        self.setup_policy()
         with patch.object(
             self.sync.api_talker.org_client,
             "describe_create_account_status",
@@ -345,6 +349,7 @@ class AWSSyncTest(TestCase):
             SyncData("bob@giphouse.nl", "bobs-project"),
         ]
 
+        self.setup_policy()
         with patch.object(
             self.sync.api_talker.org_client,
             "describe_create_account_status",
