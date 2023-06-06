@@ -187,12 +187,12 @@ The entire AWS synchronization process, also referred to as the pipeline, can be
 
 ![pipeline-flowchart](resources/pipeline-flowchart.drawio.png)
 
-After the synchronization process has finished, success or failure is indicated by a green or red response box respectively.
-Verbose details for each synchronization run is logged using the `logging` module and can be accessed in the backend, for example to inspect causes of failed runs.
+After the synchronization process has finished, a response box is returned indicating success (green), soft-fail (orange) or hard-fail (red).
+Verbose details for each synchronization run is logged using the `logging` module and can be accessed in the backend. for example to inspect causes of failed runs.
 
-An example of a possible AWS environment in the form a tree is the following:
+An example of a possible AWS Organizations environment in the form a tree is the following:
 ```
-root
+base (root/OU)
 │
 ├── Fall 2022 (OU)
 │   ├── team-alice@giphouse.nl (member account)
@@ -205,17 +205,20 @@ root
 └── admin@giphouse.nl (management account)
 ```
 
+The "base" (either root or OU), under which all relevant resources are created and operated on as part of the synchronization process, offers flexibility by being configurable in the Django admin panel.
+
 When an AWS member account has been created for a team mailing list as part of an AWS Organization, an e-mail is sent by AWS.
 This process might take some time and is under AWS' control.
 It is important to be aware that gaining initial access to the member account is only possible by formally resetting the password; there is no other way.
 Also note well that each project team member will receive such mails because the team mailing list works as a one-to-many mail forwarder.
 
-By default, all newly created member accounts under an AWS organization are placed under root with no possible alternative.
-Once the member accounts have been created, they are moved to the current course semester OU.
-Unfortunately, AWS does not specify how long it at most takes to finalize the status of a new member account request.
-This introduces the possibility of there being a time period between having a newly created member account under root and moving it to its corresponding OU that is restricted with an attached SCP policy, possibly giving the member account excessive permissions.
-To mitigate this risk, every newly created account comes with a pre-defined [tag](https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html) and the SCP policy attached to root should deny all permissions for accounts under root with the specific tag (see [Deployment](#deployment) section for more details on SCP policy configuration).
-The tag gets removed after the account has been moved to its destination OU.
+By default, all newly created member accounts under an AWS organization are placed under root.
+Once the member accounts have been created under root, they are automatically moved to the current course semester OU.
+Note that: (1) it is not possible to create a new member account that gets placed in a specific OU and (2) AWS does not specify an upper bound for the time it takes for a new member account request status to finalize.
+
+This poses the possibility of there being a time period between having a newly created member account under root and moving it to its corresponding OU that is restricted with an attached SCP policy, possibly giving the member account excessive permissions.
+To mitigate this risk, every newly created account comes with a pre-defined [tag](https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html) and the SCP policy attached to root should deny all permissions for accounts under root with the specific tag (see [Deployment](#deployment) section for more details on SCP policy and tag configuration).
+The tag then automatically gets removed after the account has been moved to its destination course semester OU.
 
 ### Mailing Lists
 Admin users can create mailing lists using the Django admin interface. A mailing list can be connected to projects, users and 'extra' email addresses that are not tied to a user. Relating a mailing list to a project implicitly makes the members of that project a member of the mailing list. Removing a mailing list in the Django admin will result in the corresponding mailing list to be archived or deleted in G suite during the next synchronization, respecting the 'archive instead of delete' property of the deleted mailing list. To sync a mailing list with G Suite, one can run the management command: `./manage.py sync_mailing_list` or use the button in the model admin. This will sync all mailing lists and the automatic lists into G Suite at the specified domain.
