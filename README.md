@@ -380,6 +380,7 @@ This repository is public and the GitHub Actions CI runner logs are also public,
 The current server is an Amazon Web Services Elastic Cloud Computing (AWS EC2) instance that runs Ubuntu 18.04. EC2 instances have a default `ubuntu` user, that is allowed to execute `sudo` without password. The `docker-compose.yaml` file includes all services that are necessary to run the website in a production environment. That is why Docker is the only dependency on the host.
 
 These steps are the necessary setup for a production server.
+
 1. Add the SSH public keys of engineers to the `authorized_keys` of the `ubuntu` user.
 2. Disable SSH password login.
 3. Install `docker` and `docker-compose`.
@@ -409,7 +410,7 @@ The steps to setup the AWS synchronization part of GiPHouse are:
    1. searching for `IAM` in the search bar, and opening the IAM console.
    2. On the left pane, go to users, and click on `add users` on the top right.
    3. give the user a name like `organization manager` or anything you like. click on next.
-   4. From the permission options, choose `attach policies directly'.
+   4. From the permission options, choose `attach policies directly`.
    5. search for `AWSOrganizationsFullAccess` and `IAMFullAccess` and add them.
 2. Setup AWS API keys.
    1. On the IAM page, on the left, click on the `users`. Now click on the user you just created. Click on `security credentials`.
