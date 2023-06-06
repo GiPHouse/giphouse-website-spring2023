@@ -152,7 +152,7 @@ Synchronization currently does not regard the role of directors of GipHouse. Thi
 
 #### AWS Synchronization
 The projects module provides synchronisation functionality with [AWS Organizations](https://aws.amazon.com/organizations/) using the official [boto3 Python AWS SDK](https://boto3.amazonaws.com/v1/documentation/api/latest/index.html).
-The AWS synchronisation process only applies to the current semester and is one-directional (from GiPHouse to AWS, but not vica versa).
+The AWS synchronisation process only applies to the current semester and is one-directional (from GiPHouse to AWS, but not vice versa).
 
 Each project in the current semester with a team mailing list gets its own AWS member account that is part of GiPHouse's AWS organization.
 Since all AWS member accounts have isolated environments, each team is able to configure their own AWS environment as desired.
@@ -160,7 +160,7 @@ The AWS member accounts are restricted in their abilities using a pre-configured
 For example, the SCP policy can be set such that only (certain types of) [EC2](https://aws.amazon.com/ec2/) instances may be launched.
 Such specific configuration details can be found under the [Deployment](#deployment) section.
 
-The AWS synchronization process can be initiated in the Django admin interface under Projects by pressing the large `SYNCHRONIZE PROJECTS OF THE CURRENT SEMESTER TO AWS` at the top-right and roughly goes through the following stages:
+The entire AWS synchronization process, also referred to as the pipeline, can be initiated in the Django admin interface under Projects by pressing the large `SYNCHRONIZE PROJECTS OF THE CURRENT SEMESTER TO AWS` at the top-right and roughly goes through the following stages:
 
 1. Preliminary checks
     - Pipeline preconditions
@@ -170,10 +170,9 @@ The AWS synchronization process can be initiated in the Django admin interface u
         4. AWS API caller acts under same account ID as organization's management account ID
         5. SCP policy type feature enabled for organization
     - Edge case checks
-        1. All AWS member accounts in correct course semester OU based on tags
-        2. No duplicate course semester OU names
-2. Create current course semester OU (optional)
-3. Attach SCP policy to current course semester OU
+        1. No duplicate course semester OU names
+2. Create current course semester OU (if non-existent)
+3. Attach SCP policy to current course semester OU (if non-existent)
 4. Synchronization
     - Determine new accounts to be invited based on AWS and GiPHouse data.
 5. Create new AWS member accounts in AWS organization
@@ -199,7 +198,7 @@ root
 └── admin@giphouse.nl (management account)
 ```
 
-When an AWS member account has been created for a team mailing list as part of an AWS Organization, a mail is sent by AWS.
+When an AWS member account has been created for a team mailing list as part of an AWS Organization, an e-mail is sent by AWS.
 This process might take some time and is under AWS' control.
 It is important to be aware that gaining initial access to the member account is only possible by formally resetting the password; there is no other way.
 Also note well that each project team member will receive such mails because the team mailing list works as a one-to-many mail forwarder.
