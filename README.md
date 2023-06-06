@@ -433,7 +433,7 @@ The steps to setup the AWS synchronization part of GiPHouse are:
 
 1. In the AWS console, go to the search bar and type `organizations`. Click on the first result.
 2. If this is the first time using AWS Organizations, create a new organization.
-3. Now we make the SCP policy that will be attached to the root OU. It must contain a condition that denies all access for member accounts with a certain tag, because of a security flaw when creating new accounts (member accounts can only be added under the root OU in AWS, and can only then be moved to the correct course OU). The name of this tag must be set on the front end, in the admin panel.
+3. Now we make the SCP policy that will be attached to the root OU. It must contain a condition that denies all access for member accounts with a certain tag, because of a security flaw when creating new accounts (member accounts can only be added under the root OU in AWS, and can only then be moved to the correct course OU). The name of this tag must be set on the front end, in the admin panel. You also need to set the base OU id, and the policy id in the frontend.
 4. You can create this policy as follows:
    1. Go to the AWS organizations page.
    2. On the left pane click on `policies`.
