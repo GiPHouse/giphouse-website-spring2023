@@ -153,7 +153,11 @@ class AWSSync:
         accounts_moved = 0
 
         for new_member in new_member_accounts:
-            response = self.api_talker.create_account(new_member.project_email, new_member.project_slug)
+            response = self.api_talker.create_account(
+                    new_member.project_email, 
+                    new_member.project_slug,
+                    [{"Key": "course_iteration_tag", "Value": "no-rights"}]
+            )
             request_id = response["CreateAccountStatus"]["Id"]
 
             for _ in range(self.ACCOUNT_REQUEST_MAX_ATTEMPTS):
@@ -177,6 +181,7 @@ class AWSSync:
                         self.api_talker.move_account(account_id, root_id, destination_ou_id)
                         accounts_moved += 1
                         self.logger.info(f"Moved new member account '{new_member.project_email}'.")
+                        self.api_talker.untag_resource(account_id, ["course_iteration_tag"])
                     except ClientError as error:
                         self.logger.debug(f"Failed to move new member account '{new_member.project_email}'.")
                         self.logger.debug(error)
