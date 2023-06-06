@@ -68,6 +68,12 @@ class AWSSyncTest(TestCase):
             tags_value="true",
         )
 
+    def get_tags_for_account(self, account_email):
+        accounts = self.sync.api_talker.org_client.list_accounts()["Accounts"]
+        account_id = [account["Id"] for account in accounts if account["Email"] == account_email][0]
+        tags = self.api_talker.org_client.list_tags_for_resource(ResourceId=account_id)["Tags"]
+        return tags
+
     def test_get_syncdata_from_giphouse_normal(self):
         """Test get_emails_with_teamids function in optimal conditions."""
         self.semester = Semester.objects.create(year=2023, season=Semester.SPRING)
@@ -277,10 +283,15 @@ class AWSSyncTest(TestCase):
         ]
 
         self.setup_policy()
-        success = self.sync.create_and_move_accounts(members, root_id, dest_ou_id)
-        self.assertTrue(success)
 
-    def test_create_move_account__exception_failure(self):
+        success = self.sync.create_and_move_accounts(members, root_id, dest_ou_id)
+        tags_alice = self.get_tags_for_account("alice@giphouse.nl")
+        tags_bob = self.get_tags_for_account("bob@giphouse.nl")
+
+        self.assertTrue(success)
+        self.assertNotIn({"Key": "no_permissions", "Value": "true"}, tags_alice + tags_bob)
+
+    def test_create_move_account__exception_move(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
         root_id = self.sync.api_talker.list_roots()[0]["Id"]
 
@@ -295,9 +306,14 @@ class AWSSyncTest(TestCase):
         with patch.object(self.sync.api_talker, "move_account", side_effect=ClientError({}, "move_account")):
             success = self.sync.create_and_move_accounts(members, root_id, dest_ou_id)
 
-        self.assertFalse(success)
+        tags_alice = self.get_tags_for_account("alice@giphouse.nl")
+        tags_bob = self.get_tags_for_account("bob@giphouse.nl")
 
-    def test_create_move_account__no_move(self):
+        self.assertFalse(success)
+        self.assertIn({"Key": "no_permissions", "Value": "true"}, tags_alice)
+        self.assertIn({"Key": "no_permissions", "Value": "true"}, tags_bob)
+
+    def test_create_move_account__exception_describe(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
         root_id = self.sync.api_talker.list_roots()[0]["Id"]
 
@@ -316,7 +332,12 @@ class AWSSyncTest(TestCase):
         ):
             success = self.sync.create_and_move_accounts(members, root_id, dest_ou_id)
 
+        tags_alice = self.get_tags_for_account("alice@giphouse.nl")
+        tags_bob = self.get_tags_for_account("bob@giphouse.nl")
+
         self.assertFalse(success)
+        self.assertIn({"Key": "no_permissions", "Value": "true"}, tags_alice)
+        self.assertIn({"Key": "no_permissions", "Value": "true"}, tags_bob)
 
     def test_create_move_account__failed(self):
         self.sync.api_talker.create_organization(feature_set="ALL")
@@ -336,6 +357,7 @@ class AWSSyncTest(TestCase):
             return_value={"CreateAccountStatus": {"State": "FAILED", "FailureReason": "EMAIL_ALREADY_EXISTS"}},
         ):
             success = self.sync.create_and_move_accounts(members, root_id, dest_ou_id)
+
         self.assertFalse(success)
 
     def test_create_move_account__in_progress(self):
@@ -357,7 +379,12 @@ class AWSSyncTest(TestCase):
         ):
             success = self.sync.create_and_move_accounts(members, root_id, dest_ou_id)
 
+        tags_alice = self.get_tags_for_account("alice@giphouse.nl")
+        tags_bob = self.get_tags_for_account("bob@giphouse.nl")
+
         self.assertFalse(success)
+        self.assertIn({"Key": "no_permissions", "Value": "true"}, tags_alice)
+        self.assertIn({"Key": "no_permissions", "Value": "true"}, tags_bob)
 
     def test_pipeline__no_accounts_no_ou(self):
         self.sync.checker.api_talker.simulate_principal_policy = MagicMock(

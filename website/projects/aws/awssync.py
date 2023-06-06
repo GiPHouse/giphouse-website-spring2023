@@ -178,7 +178,7 @@ class AWSSync:
                         self.api_talker.move_account(account_id, root_id, destination_ou_id)
                         accounts_moved += 1
                         self.logger.info(f"Moved new member account '{new_member.project_email}'.")
-                        self.api_talker.untag_resource(account_id, ["course_iteration_tag"])
+                        self.api_talker.untag_resource(account_id, [self.get_current_policy_tag()["Key"]])
                     except ClientError as error:
                         self.logger.debug(f"Failed to move new member account '{new_member.project_email}'.")
                         self.logger.debug(error)
