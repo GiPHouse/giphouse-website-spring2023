@@ -6,6 +6,7 @@ This is the code for the website of [GiPHouse](http://giphouse.nl/) powered by [
 
 ## Table of Contents
 - [GiPHouse website](#giphouse-website)
+  - [Table of Contents](#table-of-contents)
   - [Features](#features)
     - [Authentication and Users](#authentication-and-users)
     - [GitHub OAuth](#github-oauth)
@@ -21,6 +22,7 @@ This is the code for the website of [GiPHouse](http://giphouse.nl/) powered by [
       - [AWS Synchronization](#aws-synchronization)
     - [Mailing Lists](#mailing-lists)
     - [Tasks](#tasks)
+    - [Styling](#styling)
   - [Development and Contributing](#development-and-contributing)
     - [Getting Started](#getting-started)
       - [Logging into the Backend](#logging-into-the-backend)
@@ -45,7 +47,12 @@ This is the code for the website of [GiPHouse](http://giphouse.nl/) powered by [
         - [`build-docker` job](#build-docker-job)
         - [`deploy` job](#deploy-job)
       - [Secrets](#secrets)
-    - [Server](#server)
+    - [Server Configuration](#server-configuration)
+    - [AWS setup](#aws-setup)
+      - [Introduction](#introduction)
+      - [Overview](#overview)
+      - [Configuring AWS API keys](#configuring-aws-api-keys)
+      - [Configuring AWS organizations](#configuring-aws-organizations)
     - [Keeping Everything Up to Date](#keeping-everything-up-to-date)
 
 ## Features
@@ -379,6 +386,66 @@ These steps are the necessary setup for a production server.
 4. Add the `ubuntu` user to the `docker` group.
 5. Add the public key of the `SSH_PRIVATE_KEY` GitHub secret to the `authorized_keys` file of the `SSH_USER` GitHub secret user.
 6. Change the url of the website by changing the `DEPLOYMENT_HOST` env variable in the deploy.yaml file. This will set the host in all necessary places.
+
+### AWS setup
+
+#### Introduction
+
+In this guide, we will explain how the AWS synchronization code should be setup. We will setup the API keys, explain how to setup the AWS Organizations structure and explain how to deploy the AWS synchronization code.
+
+#### Overview
+
+The steps to setup the AWS synchronization part of GiPHouse are:
+
+1. create an IAM user in AWS and give it permissions for AWS Organizations access.
+2. create API keys for this user and set them as environment variables.
+3. create an organizations environment in AWS and create a root policy that denies all access for accounts with a certain tag.
+4. possibly create policies to restrict access to members in course OUs.
+5. setup all the variables in the frontend on the GiPHouse admin panel.
+
+#### Configuring AWS API keys
+
+1. In the AWS console, create an IAM user and attach the policies `AWSOrganizationsFullAccess` and `IAMFullAccess` to it. You can do this by:
+   1. searching for `IAM` in the search bar, and opening the IAM console.
+   2. On the left pane, go to users, and click on `add users` on the top right.
+   3. give the user a name like `organization manager` or anything you like. click on next.
+   4. From the permission options, choose `attach policies directly'.
+   5. search for `AWSOrganizationsFullAccess` and `IAMFullAccess` and add them.
+2. Setup AWS API keys.
+   1. On the IAM page, on the left, click on the `users`. Now click on the user you just created. Click on `security credentials`.
+   2. Scroll down to `access keys`, and click on `create access key`.
+   3. Now select `other`, and click next.
+   4. Store the shown keys somewhere, we will set them in the next step.
+3. Now we obtained the AWS API keys, we have to set them as server environment variables. You can store them in a file as well if you want to quickly switch between multiple AWS accounts (this can be useful for development), but environment variables are simpler for single account setup, so we use that.
+   1. to set the environment variables, in the poetry shell type: \
+   `export aws_access_key_id=[ID]` and \
+   `export aws_secret_access_key=[SECRET]` \
+   (with `[ID]` and `[SECRET]` changed to the values you obtained in step 2).
+4. Now the codebase should be connected to the AWS API. To quickly verify this, you can do the following:
+   1. In the poetry shell, type: `python` to start the python interpreter.
+   2. now type: `import boto3` and hit enter.
+   3. now type: `client = boto3.client("sts")` and hit enter.
+   4. now type: `client.get_caller_identity()` and hit enter.
+   5. The result should be the identity under which you are connected to the AWS API, in the form of a dictionary containing UserId, Account, Arn, etc.
+
+#### Configuring AWS organizations
+
+1. In the AWS console, go to the search bar and type `organizations`. Click on the first result.
+2. If this is the first time using AWS Organizations, create a new organization.
+3. Now we make the SCP policy that will be attached to the root OU. It must contain a condition that denies all access for member accounts with a certain tag, because of a security flaw when creating new accounts (member accounts can only be added under the root OU in AWS, and can only then be moved to the correct course OU). The name of this tag must be set on the front end, in the admin panel.
+4. You can create this policy as follows:
+   1. Go to the AWS organizations page.
+   2. On the left pane click on `policies`.
+   3. Now click on `Service control policies`. (If this option was not enabled, enable it)
+   4. Click on `Create policy`, edit it and click `Create policy` when done.
+5. To apply the policy, you have to attach it to the root OU of the organization. You can create this policy as follows:
+   1. In the AWS console, go to the search bar and type `organizations`. Click on the first result.
+   2. Now click on the OU named `Root`.
+   3. Under policies, click on `Attach`.
+   4. Now check the policy you created and click on `Attach policy`.
+6. If all went well, now the correct permissions are set on the root OU. The steps to add policies to Course Iteration OU's (when they exist) are similar. You might want to add those to for example restrict the instance types that each member account under a certain Course Iteration OU is allowed to run. You have to take into account that:
+   1. The ID of the policies that are attached to the current Course Iteration OU are set in the front end, on the admin panel.
+   2. You can make more than one policy, and choose which one to attach to Course Iteration OU's that are not the current one.
 
 ### Keeping Everything Up to Date
 All moving parts should be regularly updated to make sure all code is up to date and secure. There is no process in place to automate updates, because that may break something.
