@@ -161,7 +161,7 @@ Each project in the current semester with a team mailing list gets its own AWS m
 Since all AWS member accounts have isolated environments, each team is able to configure their own AWS environment as desired.
 The AWS member accounts are restricted in their abilities using a pre-configured [SCP policy](https://docs.aws.amazon.com/organizations/latest/userguide/orgs_manage_policies_scps.html) that is applied to the course semester Organizational Unit (OU) where all team member accounts reside.
 For example, the SCP policy can be set such that only (certain types of) [EC2](https://aws.amazon.com/ec2/) instances may be launched.
-Such specific configuration details can be found under the [Deployment](#deployment) section.
+Such specific configuration details can be found under the [Getting Started](#registering-an-aws-environment-for-synchronisation) section.
 
 The entire AWS synchronization process, also referred to as the pipeline, can be initiated in the Django admin interface under Projects by pressing the large `SYNCHRONIZE PROJECTS OF THE CURRENT SEMESTER TO AWS` at the top-right and roughly goes through the following stages:
 
@@ -213,7 +213,7 @@ Once the member accounts have been created under root, they are automatically mo
 Note that: (1) it is not possible to create a new member account that gets placed in a specific OU and (2) AWS does not specify an upper bound for the time it takes for a new member account request status to finalize.
 
 This poses the possibility of there being a time period between having a newly created member account under root and moving it to its corresponding OU that is restricted with an attached SCP policy, possibly giving the member account excessive permissions.
-To mitigate this risk, every newly created account comes with a pre-defined [tag](https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html) and the SCP policy attached to root should deny all permissions for accounts under root with the specific tag (see [Deployment](#deployment) section for more details on SCP policy and tag configuration).
+To mitigate this risk, every newly created account comes with a pre-defined [tag](https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html) and the SCP policy attached to root should deny all permissions for accounts under root with the specific tag (see [Getting Started](#registering-an-aws-environment-for-synchronisation) section for more details on SCP policy and tag configuration).
 The tag then automatically gets removed after the account has been moved to its destination course semester OU.
 
 ### Mailing Lists
