@@ -210,9 +210,12 @@ Also note well that each project team member will receive such mails because the
 
 By default, all newly created member accounts under an AWS organization are placed under root.
 Once the member accounts have been created under root, they are automatically moved to the current course semester OU.
-Note that: (1) it is not possible to create a new member account that gets placed in a specific OU and (2) AWS does not specify an upper bound for the time it takes for a new member account request status to finalize.
+Note that: (1) it is not possible to create a new member account that gets placed in a specific OU and (2) new requested member accounts can not be moved unless the account creation has been finalized to `SUCCESS` and AWS does not specify an upper bound for the time it takes for a new member account creation to finalize.
 
-This poses the possibility of there being a time period between having a newly created member account under root and moving it to its corresponding OU that is restricted with an attached SCP policy, possibly giving the member account excessive permissions.
+Due to point (2), the code contains the variables `ACCOUNT_REQUEST_MAX_ATTEMPTS` for the number of times to check the status of a new member account request, and `ACCOUNT_REQUEST_INTERVAL_SECONDS` for the time to wait in between attempts.
+These values are currently hard-coded and can be tweaked, should they cause problems with the synchronization process.
+
+Points (1) and (2) pose the possibility of there being a time period between having a newly created member account under root and moving it to its corresponding OU that is restricted with an attached SCP policy, possibly giving the member account excessive permissions.
 To mitigate this risk, every newly created account comes with a pre-defined [tag](https://docs.aws.amazon.com/tag-editor/latest/userguide/tagging.html) and the SCP policy attached to root should deny all permissions for accounts under root with the specific tag (see [Getting Started](#registering-an-aws-environment-for-synchronisation) section for more details on SCP policy and tag configuration).
 The tag then automatically gets removed after the account has been moved to its destination course semester OU.
 
