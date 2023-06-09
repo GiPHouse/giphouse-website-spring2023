@@ -286,7 +286,7 @@ To enable the AWS synchronisation feature, the following points need to be confi
 
 - Create AWS Organizations with all features enabled.
   - Ensure Service Control Policies (SCPs) feature is enabled.
-  - Enable AWS CloudTrails for logging account activity (optional, recommended).
+  - Enable AWS CloudTrail for logging account activity (optional, recommended).
 - Increase AWS Organizations quota for maximum number of member accounts to expected amount.
   - Default quota is set to 10.
   - Expected amount should be at least the number of unique projects in the current semester.
