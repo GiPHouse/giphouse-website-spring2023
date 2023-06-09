@@ -12,10 +12,10 @@ from courses.models import Semester
 
 from mailing_lists.models import MailingList
 
-from projects.awssync import AWSSync
+from projects.aws.awssync import AWSSync
 from projects.forms import ProjectAdminForm, RepositoryInlineForm
 from projects.githubsync import GitHubSync
-from projects.models import Client, Project, Repository
+from projects.models import AWSPolicy, Client, Project, Repository
 
 from registrations.models import Employee
 
@@ -175,7 +175,7 @@ class ProjectAdmin(admin.ModelAdmin):
     def synchronise_to_AWS(self, request):
         """Synchronise to Amazon Web Services."""
         sync = AWSSync()
-        sync.button_pressed()
+        sync.synchronise(request)
         return redirect("admin:projects_project_changelist")
 
     def get_urls(self):
@@ -197,3 +197,14 @@ class ClientAdmin(admin.ModelAdmin):
     """Custom admin for clients."""
 
     search_fields = ("name",)
+
+
+@admin.register(AWSPolicy)
+class AWSPolicyAdmin(admin.ModelAdmin):
+    """Custom admin for AWS Policies."""
+
+    list_display = ["base_ou_id", "policy_id", "tags_key", "tags_value", "is_current_policy"]
+    search_fields = (
+        "base_ou_id",
+        "policy_id",
+    )
